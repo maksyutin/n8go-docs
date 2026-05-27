@@ -18,7 +18,7 @@ UTDocs is a powerful clean documentation generator written in Golang.
 ### Create a new project
 
 ```bash
-git clone -b starter https://github.com/gaurishhs/utdocs.git
+git clone -b starter https://github.com/maksyutin/n8go-docs.git
 ```
 
 ### Start the development server
