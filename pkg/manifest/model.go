@@ -1,14 +1,15 @@
 package manifest
 
 type SiteManifest struct {
-	Name          string
-	ThemeId       string
-	InputPath     string
-	OutputPath    string
-	DefaultSearch bool
-	HeadTags      []string
-	CustomFont    string
-	Logo          string
+	Name              string
+	ThemeId           string
+	InputPath         string
+	OutputPath        string
+	DefaultSearch     bool
+	HeadTags          []string
+	CustomFont        string
+	Logo              string
+	StripMdExtension  bool
 }
 
 type HighlightingConfig struct {

@@ -1,4 +1,5 @@
 ## Changelog
+* (feat): Add StripMdExtension option to strip .md from internal links in generated HTML
 * 6c3045f (docs): Fix href
 * 8a6fb7b (docs): Fix navigation
 * 658bb84 (docs): Fix navigation 2

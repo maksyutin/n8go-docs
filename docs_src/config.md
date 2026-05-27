@@ -56,5 +56,14 @@ CustomFont = Roboto
 
 ### Custom CSS
 
+### Strip .md Extension from Links
 
+- When enabled, UTDocs will automatically strip the `.md` extension from all internal links in the generated HTML. This is useful when your source Markdown files reference each other with `.md` extensions (e.g. for VSCode navigation), but the generated site serves pages without file extensions.
+- Default: `false`.
 
+```ini
+[Site]
+StripMdExtension = true
+```
+
+<ut-alert type="info" message="With this option enabled, links like [Page](path/to/page.md) in your source files will resolve correctly on the generated site."></ut-alert>

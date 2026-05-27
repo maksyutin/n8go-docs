@@ -25,6 +25,7 @@ func ParseSiteManifest(path string) (SiteManifest, error) {
 		result.InputPath = siteSection.Key("Input").MustString("docs")
 		result.OutputPath = siteSection.Key("Output").MustString("docs_gen")
 		result.Logo = siteSection.Key("Logo").MustString("img/book.svg")
+		result.StripMdExtension = siteSection.Key("StripMdExtension").MustBool(false)
 	}
 
 	if !result.IsValid() {

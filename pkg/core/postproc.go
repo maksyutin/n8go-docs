@@ -22,6 +22,9 @@ func processHtmlNode(node *html.Node, pageContext *pageContext) {
 	for idx, attr := range node.Attr {
 		if (attr.Key == "href" || attr.Key == "src") && shouldChangeLink(attr.Val) {
 			path := utils.StripParentDirectories(attr.Val)
+			if pageContext.Site.StripMdExtension && strings.HasSuffix(path, ".md") {
+				path = path[:len(path)-3]
+			}
 			path = pageContext.RootPath + path
 			node.Attr[idx].Val = path
 		}
