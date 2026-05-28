@@ -1,15 +1,17 @@
 package manifest
 
 type SiteManifest struct {
-	Name              string
-	ThemeId           string
-	InputPath         string
-	OutputPath        string
-	DefaultSearch     bool
-	HeadTags          []string
-	CustomFont        string
-	Logo              string
-	StripMdExtension  bool
+	Name               string
+	ThemeId            string
+	InputPath          string
+	OutputPath         string
+	DefaultSearch      bool
+	SearchEngine       string // "fuse" | "flexsearch"
+	SearchContentLimit int    // max chars stored per page in search index (0 = unlimited)
+	HeadTags           []string
+	CustomFont         string
+	Logo               string
+	StripMdExtension   bool
 }
 
 type HighlightingConfig struct {

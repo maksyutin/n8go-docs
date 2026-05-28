@@ -143,11 +143,12 @@ func generateThemedHtmlForPage(pageContext *pageContext, siteManifest manifest.S
 		}
 
 		stripper := bluemonday.StrictPolicy()
-
-		// Remove all the HTML tags
 		html = stripper.Sanitize(html)
-
 		html = strings.ReplaceAll(html, "\n", " ")
+
+		if lim := siteManifest.SearchContentLimit; lim > 0 && len([]rune(html)) > lim {
+			html = string([]rune(html)[:lim])
+		}
 
 		AddToSearchIndex(siteManifest, SearchIndexEntry{
 			Title:   pageContext.Page.Title,
