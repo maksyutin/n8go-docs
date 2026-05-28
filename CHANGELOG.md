@@ -1,4 +1,5 @@
 ## Changelog
+* (feat): YAML config (n8go-docs.yaml), FlexSearch/Fuse engine flag, search_content_limit, strip_md_extension
 * (feat): Add StripMdExtension option to strip .md from internal links in generated HTML
 * 6c3045f (docs): Fix href
 * 8a6fb7b (docs): Fix navigation

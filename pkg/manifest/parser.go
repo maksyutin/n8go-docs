@@ -4,71 +4,83 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	"gopkg.in/ini.v1"
+	"gopkg.in/yaml.v3"
 )
 
-func getEnvBool(key string, def bool) bool {
-	v := os.Getenv(key)
-	if v == "" {
+type siteYaml struct {
+	Name               string   `yaml:"name"`
+	Theme              string   `yaml:"theme"`
+	Input              string   `yaml:"input"`
+	Output             string   `yaml:"output"`
+	DefaultSearch      *bool    `yaml:"default_search"`
+	SearchEngine       string   `yaml:"search_engine"`
+	SearchContentLimit *int     `yaml:"search_content_limit"`
+	HeadTags           []string `yaml:"head_tags"`
+	CustomFont         string   `yaml:"custom_font"`
+	Logo               string   `yaml:"logo"`
+	StripMdExtension   *bool    `yaml:"strip_md_extension"`
+}
+
+func boolOr(p *bool, def bool) bool {
+	if p == nil {
 		return def
 	}
-	b, err := strconv.ParseBool(v)
+	return *p
+}
+
+func intOr(p *int, def int) int {
+	if p == nil {
+		return def
+	}
+	return *p
+}
+
+func strOr(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
+}
+
+// ParseSiteManifest loads site config from a YAML file.
+// Falls back to legacy INI format (utdocs.ini) if the file has a .ini extension.
+func ParseSiteManifest(path string) (SiteManifest, error) {
+	ext := filepath.Ext(path)
+	if ext == ".ini" {
+		return parseSiteIni(path)
+	}
+	return parseSiteYaml(path)
+}
+
+func parseSiteYaml(path string) (SiteManifest, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return def
+		return SiteManifest{}, err
 	}
-	return b
-}
 
-func getEnvInt(key string, def int) int {
-	v := os.Getenv(key)
-	if v == "" {
-		return def
+	var cfg siteYaml
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return SiteManifest{}, err
 	}
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		return def
-	}
-	return i
-}
-
-func getEnvStr(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
-
-// ParseSiteManifest loads site config from environment variables.
-// Falls back to the .env file (key=value format) if present.
-func ParseSiteManifest(envFile string) (SiteManifest, error) {
-	loadEnvFile(envFile)
 
 	result := SiteManifest{
-		Name:               getEnvStr("UTDOCS_NAME", ""),
-		ThemeId:            getEnvStr("UTDOCS_THEME", "default"),
-		InputPath:          getEnvStr("UTDOCS_INPUT", "docs"),
-		OutputPath:         getEnvStr("UTDOCS_OUTPUT", "docs_gen"),
-		DefaultSearch:      getEnvBool("UTDOCS_DEFAULT_SEARCH", true),
-		SearchEngine:       getEnvStr("UTDOCS_SEARCH_ENGINE", "fuse"),
-		SearchContentLimit: getEnvInt("UTDOCS_SEARCH_CONTENT_LIMIT", 500),
-		CustomFont:         getEnvStr("UTDOCS_CUSTOM_FONT", ""),
-		Logo:               getEnvStr("UTDOCS_LOGO", "img/book.svg"),
-		StripMdExtension:   getEnvBool("UTDOCS_STRIP_MD_EXTENSION", false),
-	}
-
-	if tags := os.Getenv("UTDOCS_HEAD_TAGS"); tags != "" {
-		for _, t := range strings.Split(tags, ",") {
-			if t = strings.TrimSpace(t); t != "" {
-				result.HeadTags = append(result.HeadTags, t)
-			}
-		}
+		Name:               cfg.Name,
+		ThemeId:            strOr(cfg.Theme, "default"),
+		InputPath:          strOr(cfg.Input, "docs"),
+		OutputPath:         strOr(cfg.Output, "docs_gen"),
+		DefaultSearch:      boolOr(cfg.DefaultSearch, true),
+		SearchEngine:       strOr(cfg.SearchEngine, "flexsearch"),
+		SearchContentLimit: intOr(cfg.SearchContentLimit, 500),
+		HeadTags:           cfg.HeadTags,
+		CustomFont:         cfg.CustomFont,
+		Logo:               strOr(cfg.Logo, "img/book.svg"),
+		StripMdExtension:   boolOr(cfg.StripMdExtension, false),
 	}
 
 	if !result.IsValid() {
-		return result, errors.New("missing required parameters: UTDOCS_NAME must be set")
+		return result, errors.New("missing required field: name")
 	}
 
 	result.InputPath = filepath.Clean(result.InputPath)
@@ -77,57 +89,62 @@ func ParseSiteManifest(envFile string) (SiteManifest, error) {
 	return result, nil
 }
 
-// loadEnvFile reads a key=value file and sets env vars that are not already set.
-func loadEnvFile(path string) {
+// parseSiteIni keeps backward compatibility with the old INI format.
+func parseSiteIni(path string) (SiteManifest, error) {
 	cfg, err := ini.Load(path)
 	if err != nil {
-		return
+		return SiteManifest{}, err
 	}
-	section := cfg.Section("Site")
-	mapping := map[string]string{
-		"Name":               "UTDOCS_NAME",
-		"Theme":              "UTDOCS_THEME",
-		"Input":              "UTDOCS_INPUT",
-		"Output":             "UTDOCS_OUTPUT",
-		"DefaultSearch":      "UTDOCS_DEFAULT_SEARCH",
-		"SearchEngine":       "UTDOCS_SEARCH_ENGINE",
-		"SearchContentLimit": "UTDOCS_SEARCH_CONTENT_LIMIT",
-		"HeadTags":           "UTDOCS_HEAD_TAGS",
-		"CustomFont":         "UTDOCS_CUSTOM_FONT",
-		"Logo":               "UTDOCS_LOGO",
-		"StripMdExtension":   "UTDOCS_STRIP_MD_EXTENSION",
+
+	s := cfg.Section("Site")
+	result := SiteManifest{
+		Name:               s.Key("Name").String(),
+		ThemeId:            s.Key("Theme").MustString("default"),
+		DefaultSearch:      s.Key("DefaultSearch").MustBool(true),
+		SearchEngine:       s.Key("SearchEngine").MustString("flexsearch"),
+		SearchContentLimit: s.Key("SearchContentLimit").MustInt(500),
+		CustomFont:         s.Key("CustomFont").String(),
+		InputPath:          s.Key("Input").MustString("docs"),
+		OutputPath:         s.Key("Output").MustString("docs_gen"),
+		Logo:               s.Key("Logo").MustString("img/book.svg"),
+		StripMdExtension:   s.Key("StripMdExtension").MustBool(false),
 	}
-	for iniKey, envKey := range mapping {
-		if os.Getenv(envKey) == "" {
-			if v := section.Key(iniKey).String(); v != "" {
-				os.Setenv(envKey, v)
-			}
+	for _, t := range s.Key("HeadTags").Strings(",") {
+		if t != "" {
+			result.HeadTags = append(result.HeadTags, t)
 		}
 	}
+
+	if !result.IsValid() {
+		return result, errors.New("missing required parameters")
+	}
+
+	result.InputPath = filepath.Clean(result.InputPath)
+	result.OutputPath = filepath.Clean(result.OutputPath)
+
+	return result, nil
 }
 
 func ParseThemeManifest(path string) (ThemeManifest, error) {
-	manifest, err := ini.Load(path)
+	cfg, err := ini.Load(path)
 	if err != nil {
 		return ThemeManifest{}, err
 	}
 
 	result := ThemeManifest{}
 
-	rootSection := manifest.Section("Theme")
-	if rootSection != nil {
-		result.Name = rootSection.Key("Name").String()
-		result.Description = rootSection.Key("Description").String()
-		result.Repository = rootSection.Key("Repository").String()
-		result.Version = rootSection.Key("Version").String()
-		result.Author = rootSection.Key("Author").String()
-		result.License = rootSection.Key("License").String()
+	if s := cfg.Section("Theme"); s != nil {
+		result.Name = s.Key("Name").String()
+		result.Description = s.Key("Description").String()
+		result.Repository = s.Key("Repository").String()
+		result.Version = s.Key("Version").String()
+		result.Author = s.Key("Author").String()
+		result.License = s.Key("License").String()
 	}
 
-	highlightingSection := manifest.Section("Highlighting")
-	if highlightingSection != nil {
-		result.Highlighting.Style = highlightingSection.Key("Style").MustString("bw")
-		result.Highlighting.LineNumbers = highlightingSection.Key("LineNumbers").MustBool(false)
+	if s := cfg.Section("Highlighting"); s != nil {
+		result.Highlighting.Style = s.Key("Style").MustString("bw")
+		result.Highlighting.LineNumbers = s.Key("LineNumbers").MustBool(false)
 	}
 
 	if !result.IsValid() {
