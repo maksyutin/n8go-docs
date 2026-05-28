@@ -1,7 +1,7 @@
 package main
 
 import (
-	"utdocs/diagnostics"
+	"n8go-docs/diagnostics"
 
 	"github.com/alecthomas/kong"
 )

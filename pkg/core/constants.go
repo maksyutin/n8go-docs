@@ -1,6 +1,6 @@
 package core
 
-const ProgramName = "utdocs"
+const ProgramName = "n8go-docs"
 const ProgramVersion = "1.0.0"
 const ThemeManifestName = "theme.ini"
 const SiteManifestName = "n8go-docs.yaml"

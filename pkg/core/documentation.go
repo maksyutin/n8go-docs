@@ -10,9 +10,9 @@ import (
 	"strings"
 	"text/template"
 	"time"
-	"utdocs/diagnostics"
-	"utdocs/manifest"
-	"utdocs/utils"
+	"n8go-docs/diagnostics"
+	"n8go-docs/manifest"
+	"n8go-docs/utils"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/fatih/color"

@@ -45,7 +45,7 @@ func strOr(s, def string) string {
 }
 
 // ParseSiteManifest loads site config from a YAML file.
-// Falls back to legacy INI format (utdocs.ini) if the file has a .ini extension.
+// Falls back to legacy INI format (n8go-docs.ini) if the file has a .ini extension.
 func ParseSiteManifest(path string) (SiteManifest, error) {
 	ext := filepath.Ext(path)
 	if ext == ".ini" {

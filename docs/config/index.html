@@ -9,7 +9,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-    <title>Configuration - UTDocs</title>
+    <title>Configuration - n8go-docs</title>
     <link rel="shortcut icon" href="../img/book.svg"/>
 
     <!-- Stylesheets and scripts -->
@@ -26,11 +26,7 @@
     
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&amp;display=swap" rel="stylesheet"/>
     
-    <meta name="description" content="UTDocs is a powerful documentation generator in Golang
-    
-    Offers features like Full Text Search
-    
-    Rich Markdown and Components."/>
+    <meta name="description" content="n8go-docs is a powerful documentation generator in Golang, Offers features like Full Text Search, Rich Markdown and Components."/>
     
     
     
@@ -57,7 +53,7 @@
         <div class="nav-content">
             <header class="nav-header">
                 <img src="../img/book.svg" alt="" height="32"/>
-                UTDocs
+                n8go-docs
                 <button id="toggle_btn" class="toggle_button" type="button">
                     <svg id="light-icon" class="theme-icon" viewBox="0 0 20 20">
                         <path fill="none" d="M5.114,5.726c0.169,0.168,0.442,0.168,0.611,0c0.168-0.169,0.168-0.442,0-0.61L3.893,3.282c-0.168-0.168-0.442-0.168-0.61,0c-0.169,0.169-0.169,0.442,0,0.611L5.114,5.726z M3.955,10c0-0.239-0.193-0.432-0.432-0.432H0.932C0.693,9.568,0.5,9.761,0.5,10s0.193,0.432,0.432,0.432h2.591C3.761,10.432,3.955,10.239,3.955,10 M10,3.955c0.238,0,0.432-0.193,0.432-0.432v-2.59C10.432,0.693,10.238,0.5,10,0.5S9.568,0.693,9.568,0.932v2.59C9.568,3.762,9.762,3.955,10,3.955 M14.886,5.726l1.832-1.833c0.169-0.168,0.169-0.442,0-0.611c-0.169-0.168-0.442-0.168-0.61,0l-1.833,1.833c-0.169,0.168-0.169,0.441,0,0.61C14.443,5.894,14.717,5.894,14.886,5.726 M5.114,14.274l-1.832,1.833c-0.169,0.168-0.169,0.441,0,0.61c0.168,0.169,0.442,0.169,0.61,0l1.833-1.832c0.168-0.169,0.168-0.442,0-0.611C5.557,14.106,5.283,14.106,5.114,14.274 M19.068,9.568h-2.591c-0.238,0-0.433,0.193-0.433,0.432s0.194,0.432,0.433,0.432h2.591c0.238,0,0.432-0.193,0.432-0.432S19.307,9.568,19.068,9.568 M14.886,14.274c-0.169-0.168-0.442-0.168-0.611,0c-0.169,0.169-0.169,0.442,0,0.611l1.833,1.832c0.168,0.169,0.441,0.169,0.61,0s0.169-0.442,0-0.61L14.886,14.274z M10,4.818c-2.861,0-5.182,2.32-5.182,5.182c0,2.862,2.321,5.182,5.182,5.182s5.182-2.319,5.182-5.182C15.182,7.139,12.861,4.818,10,4.818M10,14.318c-2.385,0-4.318-1.934-4.318-4.318c0-2.385,1.933-4.318,4.318-4.318c2.386,0,4.318,1.933,4.318,4.318C14.318,12.385,12.386,14.318,10,14.318 M10,16.045c-0.238,0-0.432,0.193-0.432,0.433v2.591c0,0.238,0.194,0.432,0.432,0.432s0.432-0.193,0.432-0.432v-2.591C10.432,16.238,10.238,16.045,10,16.045"></path>
@@ -115,54 +111,94 @@
     </div>
     <section class="flex-fill">
         <div class="main-content" id="main-content"><h1 id="configuration">Configuration</h1>
-<ul>
-<li>UTDocs uses <a href="https://en.wikipedia.org/wiki/INI_file"><code>INI</code></a> file format for configuration.</li>
-<li>The configuration file is located at <code>utdocs.ini</code> in the root of the project.</li>
-</ul>
-<h2 id="options">Options</h2>
-<h3 id="site-name">Site Name</h3>
-<ul>
-<li>The name of site. Used in the title of the HTML pages to generate titles such as <code>Home - My Site</code>.</li>
-</ul>
-<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span><span style="color:#fc5fa3">[Site]</span>
-</span></span><span style="display:flex;"><span>Name = <span style="color:#fc6a5d">My Site</span>
-</span></span></code></pre><h3 id="disabling-default-search">Disabling Default Search</h3>
-<ul>
-<li>By default, UTDocs comes with a built-in full text search functionality. If you want to disable it, you can do so by setting the <code>DefaultSearch</code> option to <code>false</code>.</li>
-</ul>
-<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span><span style="color:#fc5fa3">[Site]</span>
-</span></span><span style="display:flex;"><span>DefaultSearch = <span style="color:#fc6a5d">false</span>
-</span></span></code></pre><h3 id="theme-id">Theme ID</h3>
-<ul>
-<li>The ID of the theme to use. The default theme is <code>default</code>. You can find more themes in the <a href="..//themeing">Themeing</a> section.</li>
-</ul>
-<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span><span style="color:#fc5fa3">[Site]</span>
-</span></span><span style="display:flex;"><span>Theme = <span style="color:#fc6a5d">default</span>
-</span></span></code></pre><h3 id="theme-directory">Theme Directory</h3>
-<ul>
-<li>The directory where the theme is located. By default, UTDocs will look for the theme in the <code>themes</code> directory in the root of the project.</li>
-</ul>
-<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span><span style="color:#d0a8ff">export</span> <span style="color:#41a1c0">THEME_DIR</span>=/path/to/theme
-</span></span></code></pre><h3 id="custom-head-tags">Custom Head Tags</h3>
-<ul>
-<li>You can add custom tags to the <code>&lt;head&gt;</code> of the HTML pages by adding them to the <code>HeadTags</code> option.</li>
-</ul>
-<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span><span style="color:#fc5fa3">[Site]</span>
-</span></span><span style="display:flex;"><span>HeadTags = <span style="color:#fc6a5d">&lt;link rel=&#34;stylesheet&#34; href=&#34;https://example.com/style.css&#34;&gt;</span>
-</span></span></code></pre><h3 id="custom-font">Custom Font</h3>
-<ul>
-<li>You can add a custom font to the site by adding the link to the <code>CustomFont</code> option.</li>
-</ul>
-<p><ut-alert type="warn" message="Make sure to have the font in the head by using custom head tags."></ut-alert></p>
-<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span><span style="color:#fc5fa3">[Site]</span>
-</span></span><span style="display:flex;"><span>CustomFont = <span style="color:#fc6a5d">Roboto</span>
-</span></span></code></pre><h3 id="custom-css">Custom CSS</h3>
-</div>
+<p>n8go-docs is configured via a <code>n8go-docs.yaml</code> file in the working directory from which <code>n8go-docs</code> is run.</p>
+<h2 id="full-example">Full example</h2>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>name: My Docs
+</span></span><span style="display:flex;"><span>input: docs
+</span></span><span style="display:flex;"><span>output: docs_gen
+</span></span><span style="display:flex;"><span>theme: default
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>search_engine: flexsearch
+</span></span><span style="display:flex;"><span>search_content_limit: <span style="color:#d0bf69">500</span>
+</span></span><span style="display:flex;"><span>strip_md_extension: <span style="color:#fc5fa3">true</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>custom_font: Roboto
+</span></span><span style="display:flex;"><span>head_tags:
+</span></span><span style="display:flex;"><span>  - <span style="color:#fc6a5d">&#39;&lt;link rel=&#34;preconnect&#34; href=&#34;https://fonts.googleapis.com&#34;&gt;&#39;</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#fc6a5d">&#39;&lt;link href=&#34;https://fonts.googleapis.com/css2?family=Roboto&amp;display=swap&#34; rel=&#34;stylesheet&#34;&gt;&#39;</span>
+</span></span></code></pre><h2 id="options">Options</h2>
+<h3 id="name-required">name <em>(required)</em></h3>
+<p>The site title. Used in HTML <code>&lt;title&gt;</code> tags: <code>Page — My Docs</code>.</p>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>name: My Docs
+</span></span></code></pre><hr/>
+<h3 id="input">input</h3>
+<p>Directory containing the Markdown source files. Default: <code>docs</code>.</p>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>input: docs
+</span></span></code></pre><hr/>
+<h3 id="output">output</h3>
+<p>Directory where static HTML is written. Default: <code>docs_gen</code>.</p>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>output: docs_gen
+</span></span></code></pre><hr/>
+<h3 id="theme">theme</h3>
+<p>Theme ID. n8go-docs looks for the theme in the <code>themes/</code> directory next to the binary. Default: <code>default</code>.</p>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>theme: default
+</span></span></code></pre><p>The theme directory can be overridden with the <code>THEME_DIR</code> environment variable.</p>
+<hr/>
+<h3 id="search-engine">search_engine</h3>
+<p>Full-text search engine to use. Default: <code>flexsearch</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Library</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>flexsearch</code></td>
+<td><a href="https://github.com/nextapps-de/flexsearch">FlexSearch</a> — fast tokenized search</td>
+</tr>
+<tr>
+<td><code>fuse</code></td>
+<td><a href="https://fusejs.io/">Fuse.js</a> — fuzzy search</td>
+</tr>
+</tbody>
+</table>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>search_engine: flexsearch
+</span></span></code></pre><hr/>
+<h3 id="search-content-limit">search_content_limit</h3>
+<p>Maximum number of characters stored per page in the search index. Reduces index size without affecting search quality for typical queries. Set to <code>0</code> for no limit. Default: <code>500</code>.</p>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>search_content_limit: <span style="color:#d0bf69">500</span>
+</span></span></code></pre><hr/>
+<h3 id="strip-md-extension">strip_md_extension</h3>
+<p>When <code>true</code>, strips <code>.md</code> extensions from all internal links in generated HTML. Useful when source files reference each other with <code>.md</code> links (e.g. for editor navigation) while the site serves clean URLs. Default: <code>false</code>.</p>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>strip_md_extension: <span style="color:#fc5fa3">true</span>
+</span></span></code></pre><hr/>
+<h3 id="default-search">default_search</h3>
+<p>Set to <code>false</code> to disable the built-in search entirely. Default: <code>true</code>.</p>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>default_search: <span style="color:#fc5fa3">false</span>
+</span></span></code></pre><hr/>
+<h3 id="custom-font">custom_font</h3>
+<p>Name of a custom font to apply site-wide. Make sure to load the font via <code>head_tags</code>.</p>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>custom_font: Roboto
+</span></span></code></pre><hr/>
+<h3 id="head-tags">head_tags</h3>
+<p>List of raw HTML tags injected into <code>&lt;head&gt;</code> on every page. Use for fonts, analytics, meta tags, etc.</p>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>head_tags:
+</span></span><span style="display:flex;"><span>  - <span style="color:#fc6a5d">&#39;&lt;link rel=&#34;stylesheet&#34; href=&#34;https://example.com/style.css&#34;&gt;&#39;</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#fc6a5d">&#39;&lt;meta name=&#34;author&#34; content=&#34;Your Name&#34;&gt;&#39;</span>
+</span></span></code></pre><hr/>
+<h3 id="logo">logo</h3>
+<p>Path to the logo image (relative to the output directory). Default: <code>img/book.svg</code>.</p>
+<pre tabindex="0" style="color:#fff;background-color:#1f1f24;"><code><span style="display:flex;"><span>logo: img/my-logo.svg
+</span></span></code></pre></div>
     </section>
     <section id="toc" class="toc">
         <div class="toc-item header">Contents</div>
         
         <a href="#configuration" class="toc-item">Configuration</a>
+        
+        <a href="#full-example" class="toc-item">Full example</a>
         
         <a href="#options" class="toc-item">Options</a>
         
@@ -179,8 +215,8 @@
 
 
 </body><!--
-    Generator: utdocs
+    Generator: n8go-docs
     Version:   1.0.0
-    Built on:  2022-12-10 13:09:22.013
+    Built on:  2026-05-28 20:21:59.406
     Source:    docs_src/config.md
 --></html>

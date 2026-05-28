@@ -2,9 +2,9 @@ package main
 
 import (
 	"os"
-	"utdocs/core"
-	"utdocs/diagnostics"
-	"utdocs/manifest"
+	"n8go-docs/core"
+	"n8go-docs/diagnostics"
+	"n8go-docs/manifest"
 
 	"github.com/fatih/color"
 )

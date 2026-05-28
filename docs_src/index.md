@@ -1,6 +1,6 @@
 # Introduction
 
-UTDocs is a powerful clean documentation generator written in Golang.
+n8go-docs is a powerful clean documentation generator written in Golang.
 
 ## Features
 
@@ -13,25 +13,25 @@ UTDocs is a powerful clean documentation generator written in Golang.
 
 
 ## Installation
-- Head over to the [releases](https://github.com/gaurishhs/utdocs/releases) page and download the latest binary for your platform.
+- Head over to the [releases](https://github.com/maksyutin/n8go-docs/releases) page and download the latest binary for your platform.
 
 ## Usage
 
 ### Create a new project
 
 ```bash
-git clone -b starter https://github.com/gaurishhs/utdocs.git
+git clone https://github.com/maksyutin/n8go-docs.git
 ```
 
 ### Start the development server
 
 ```bash
-utdocs serve
+n8go-docs serve
 ```
 
 ### Build the static site
 
 ```bash
-utdocs generate
+n8go-docs generate
 ```
 

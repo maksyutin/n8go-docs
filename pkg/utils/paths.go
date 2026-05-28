@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"utdocs/diagnostics"
+	"n8go-docs/diagnostics"
 
 	"github.com/iancoleman/strcase"
 )

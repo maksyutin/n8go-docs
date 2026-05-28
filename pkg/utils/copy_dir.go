@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"utdocs/diagnostics"
+	"n8go-docs/diagnostics"
 )
 
 func copyFile(src string, dst string) error {

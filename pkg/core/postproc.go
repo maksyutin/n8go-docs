@@ -3,7 +3,7 @@ package core
 import (
 	"io"
 	"strings"
-	"utdocs/utils"
+	"n8go-docs/utils"
 
 	"golang.org/x/net/html"
 )

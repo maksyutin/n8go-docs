@@ -8,5 +8,5 @@
 * 95aec1c (fix): Fix FTS index and add more config options
 * 565b56c Create CNAME
 * cc45ca6 Delete CNAME
-* 340e1d0 Merge branch 'main' of https://github.com/gaurishhs/utdocs
-* 849885c Merge branch 'main' of https://github.com/gaurishhs/utdocs
+* 340e1d0 Merge branch 'main' of https://github.com/maksyutin/n8go-docs
+* 849885c Merge branch 'main' of https://github.com/maksyutin/n8go-docs

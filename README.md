@@ -1,4 +1,4 @@
-# UTDocs
+# n8go-docs
 
 A clean static documentation generator written in Go.
 
@@ -32,19 +32,19 @@ strip_md_extension: true
 **2. Generate the site:**
 
 ```bash
-utdocs generate
+n8go-docs generate
 ```
 
 **3. Start the dev server (with live reload):**
 
 ```bash
-utdocs serve
+n8go-docs serve
 ```
 
 The server starts on port `9080` by default. Pass a custom port as an argument:
 
 ```bash
-utdocs serve 3000
+n8go-docs serve 3000
 ```
 
 ## Configuration

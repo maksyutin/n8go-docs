@@ -2,7 +2,7 @@ package core
 
 import (
 	"text/template"
-	"utdocs/utils"
+	"n8go-docs/utils"
 )
 
 func generateTemplate(themeDir string) (*template.Template, error) {

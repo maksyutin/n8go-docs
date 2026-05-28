@@ -1,4 +1,4 @@
-module utdocs
+module n8go-docs
 
 go 1.18
 

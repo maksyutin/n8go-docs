@@ -5,8 +5,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"utdocs/core"
-	"utdocs/manifest"
+	"n8go-docs/core"
+	"n8go-docs/manifest"
 )
 
 func findThemesBaseDir() (string, error) {

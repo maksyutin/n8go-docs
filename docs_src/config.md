@@ -1,6 +1,6 @@
 # Configuration
 
-UTDocs is configured via a `n8go-docs.yaml` file in the working directory from which `utdocs` is run.
+n8go-docs is configured via a `n8go-docs.yaml` file in the working directory from which `n8go-docs` is run.
 
 ## Full example
 
@@ -54,7 +54,7 @@ output: docs_gen
 
 ### theme
 
-Theme ID. UTDocs looks for the theme in the `themes/` directory next to the binary. Default: `default`.
+Theme ID. n8go-docs looks for the theme in the `themes/` directory next to the binary. Default: `default`.
 
 ```yaml
 theme: default

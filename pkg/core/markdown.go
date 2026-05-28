@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"utdocs/manifest"
-	"utdocs/utils"
+	"n8go-docs/manifest"
+	"n8go-docs/utils"
 
 	hhtml "github.com/alecthomas/chroma/v2/formatters/html"
 	headingid "github.com/jkboxomine/goldmark-headingid"
