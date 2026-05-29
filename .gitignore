@@ -13,9 +13,13 @@
 *.out
 
 # IDEs
-.vscode/
+.vscode/*
 .idea/
+.cursor/
 
 # Output of n8go-docs generator
 docs_gen/
+site/
+site_test/
+site_project/
 dist/

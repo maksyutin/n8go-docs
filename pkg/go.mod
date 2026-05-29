@@ -12,14 +12,13 @@ require (
 	github.com/yuin/goldmark v1.4.15
 	github.com/yuin/goldmark-emoji v1.0.1
 	golang.org/x/net v0.0.0-20221002022538-bcab6841153b
-	gopkg.in/ini.v1 v1.63.2
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/gorilla/css v1.0.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (

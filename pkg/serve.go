@@ -7,7 +7,6 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"n8go-docs/core"
 	"n8go-docs/diagnostics"
 	"n8go-docs/manifest"
 	"n8go-docs/utils"
@@ -36,9 +35,9 @@ func FileServerWithCustom404(fs http.FileSystem, port int) http.Handler {
 	})
 }
 
-func runServer(port int) error {
+func runServer(configPath string, port int) error {
 	// Parse manifest
-	siteManifest, err := manifest.ParseSiteManifest(core.SiteManifestName)
+	siteManifest, err := manifest.ParseSiteManifest(configPath)
 	if err != nil {
 		return err
 	}
@@ -71,7 +70,7 @@ func runServer(port int) error {
 							log.Printf("Error deleting search index: %s\n", err)
 						}
 					}
-					err := runGenerator()
+					err := runGenerator(configPath)
 					if err != nil {
 						diagnostics.PrintError(err, "failed to regenerate")
 					}
@@ -91,7 +90,7 @@ func runServer(port int) error {
 	}
 
 	// Generate initial version
-	err = runGenerator()
+	err = runGenerator(configPath)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,11 @@
+theme:
+  name: Material
+  description: Material Design theme for n8go-docs, inspired by MkDocs Material
+  repository: https://github.com/maksyutin/n8go-docs
+  version: 1.0.0
+  author: n8go-docs
+  license: MIT
+
+highlighting:
+  style: monokai
+  line_numbers: false

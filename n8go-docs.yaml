@@ -1,9 +1,29 @@
-name: n8go-docs
-input: docs_src
-output: docs
-custom_font: IBM Plex Sans
-head_tags:
-  - '<link rel="preconnect" href="https://fonts.googleapis.com">'
-  - '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-  - '<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&display=swap" rel="stylesheet">'
-  - '<meta name="description" content="n8go-docs is a powerful documentation generator in Golang, Offers features like Full Text Search, Rich Markdown and Components.">'
+name: XBoiler
+docs_dir: docs
+site_dir: site
+theme: default
+
+search_engine: flexsearch
+search_content_limit: 500
+strip_md_extension: true
+
+nav:
+  - О проекте: README.md
+  - Архитектурные решения: adr/README.md
+  - Для пользователя:
+      - Installation: user-guide/installation.md
+      - Configuration: user-guide/configuration.md
+  - Для оператора:
+      - API: dev-guide/api.md
+      - Themes: dev-guide/themes.md
+      - Plugins: dev-guide/plugins.md
+  - Для разработчика:
+      - Writing Docs: about/writing-your-docs.md
+      - Contributing: about/contributing.md
+      - Release Notes: about/release-notes.md
+      - License: about/license.md
+
+exclude_docs: |
+  drafts/
+  **/secret-*.md
+  wip.md

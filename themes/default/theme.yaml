@@ -1,0 +1,11 @@
+theme:
+  name: Default
+  description: Default theme for n8go-docs, Using Bootstrap 5
+  repository: https://github.com/maksyutin/n8go-docs
+  version: 1.0.0
+  author: n8go-docs
+  license: MIT
+
+highlighting:
+  style: xcode-dark
+  line_numbers: false

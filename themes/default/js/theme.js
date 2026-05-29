@@ -1,4 +1,80 @@
 (function () {
+    function getMermaidTheme() {
+        return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default';
+    }
+
+    function initMermaid() {
+        if (typeof mermaid === 'undefined') return;
+        var blocks = document.querySelectorAll('pre code.language-mermaid');
+        blocks.forEach(function (code) {
+            var pre = code.parentNode;
+            var div = document.createElement('div');
+            div.className = 'mermaid';
+            div.setAttribute('data-mermaid-src', code.textContent);
+            div.textContent = code.textContent;
+            pre.parentNode.replaceChild(div, pre);
+        });
+        renderMermaid();
+    }
+
+    function renderMermaid() {
+        if (typeof mermaid === 'undefined') return;
+        var diagrams = document.querySelectorAll('.mermaid');
+        if (!diagrams.length) return;
+        diagrams.forEach(function (div) {
+            var src = div.getAttribute('data-mermaid-src');
+            if (src && div.getAttribute('data-processed')) {
+                div.removeAttribute('data-processed');
+                div.innerHTML = '';
+                div.textContent = src;
+            }
+        });
+        mermaid.initialize({ startOnLoad: false, theme: getMermaidTheme() });
+        mermaid.run({ querySelector: '.mermaid' });
+    }
+
+    var _lightbox = null;
+    function getMermaidLightbox() {
+        if (_lightbox) return _lightbox;
+        _lightbox = document.createElement('div');
+        _lightbox.className = 'mermaid-lightbox';
+        _lightbox.innerHTML = '<button class="mermaid-lightbox__close" aria-label="Close">&times;</button><div class="mermaid-lightbox__inner"></div>';
+        document.body.appendChild(_lightbox);
+        var inner = _lightbox.querySelector('.mermaid-lightbox__inner');
+        _lightbox.addEventListener('click', function (e) {
+            if (e.target === _lightbox || e.target.closest('.mermaid-lightbox__close')) {
+                _lightbox.classList.remove('is-open');
+                inner.innerHTML = '';
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                _lightbox.classList.remove('is-open');
+                inner.innerHTML = '';
+            }
+        });
+        return _lightbox;
+    }
+
+    function initMermaidLightbox() {
+        document.addEventListener('click', function (e) {
+            var diagram = e.target.closest('.mermaid');
+            if (!diagram) return;
+            var svg = diagram.querySelector('svg');
+            if (!svg) return;
+            var lb = getMermaidLightbox();
+            var inner = lb.querySelector('.mermaid-lightbox__inner');
+            inner.innerHTML = '';
+            var clone = svg.cloneNode(true);
+            clone.removeAttribute('width');
+            clone.removeAttribute('height');
+            clone.style.width = '100%';
+            clone.style.height = 'auto';
+            inner.appendChild(clone);
+            lb.classList.add('is-open');
+        });
+    }
+
     var nav = document.getElementById('nav');
     var mainContent = document.getElementById('main-content');
     var menuButton = document.getElementById('menu-button');
@@ -46,41 +122,51 @@
         }
     }
 
-    var navLinks = document.querySelectorAll('#nav a');
-    for (var i = 0; i < navLinks.length; i++) {
-        navLinks[i].onclick = function (e) {
-            e.preventDefault();
-            var linkHref = this.getAttribute('href');
-            if (!linkHref.startsWith('/')) {
-                linkHref = '/' + linkHref;
-            }
-            if (linkHref) {
-                window.history.pushState(null, null, window.location.origin + linkHref);
-                fetch(linkHref)
-                    .then(function (response) {
-                        return response.text();
-                    })
-                    .then(function (html) {
-                        var parser = new DOMParser();
-                        var doc = parser.parseFromString(html, 'text/html');
-                        document.title = doc.title;
-                        var content = doc.getElementById('main-content');
-                        mainContent.innerHTML = content.innerHTML;
-                        // Get current active nav link
-                        var activeNavLinks = document.querySelectorAll('#nav a.active');
-                        for (var i = 0; i < activeNavLinks.length; i++) {
-                            activeNavLinks[i].classList.remove('active');
-                        }
-                        // Set active nav link
-                        e.target.classList.add('active');
+    function navigateTo(pathname) {
+        fetch(pathname)
+            .then(function (response) { return response.text(); })
+            .then(function (html) {
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(html, 'text/html');
 
-                        document.getElementById('toc').innerHTML = doc.getElementById('toc').innerHTML;
-                    }).catch((e) => {
-                       // TODO: Handle network errors
-                    })
-            }
-        };
+                document.title = doc.title;
+
+                var newContent = doc.getElementById('main-content');
+                if (newContent) mainContent.innerHTML = newContent.innerHTML;
+
+                // Replace entire nav with the fetched page's nav (correct relative links)
+                var newNav = doc.getElementById('nav');
+                if (newNav) nav.innerHTML = newNav.innerHTML;
+
+                var toc = document.getElementById('toc');
+                var newToc = doc.getElementById('toc');
+                if (toc && newToc) toc.innerHTML = newToc.innerHTML;
+
+                initMermaid();
+            })
+            .catch(function () {
+                window.location.href = pathname;
+            });
     }
+
+    // Event delegation — works even after nav innerHTML is replaced
+    document.addEventListener('click', function (e) {
+        var link = e.target.closest('#nav a');
+        if (!link) return;
+        var rawHref = link.getAttribute('href');
+        if (!rawHref || rawHref.startsWith('http') || rawHref.startsWith('#') || rawHref.startsWith('mailto:')) return;
+        e.preventDefault();
+        var resolved = new URL(rawHref, window.location.href);
+        window.history.pushState(null, null, resolved.href);
+        navigateTo(resolved.pathname);
+    });
+
+    window.addEventListener('popstate', function () {
+        navigateTo(window.location.pathname);
+    });
+
+    initMermaid();
+    initMermaidLightbox();
 
     var darkIcon = document.getElementById('dark-icon');
     var lightIcon = document.getElementById('light-icon');
@@ -97,6 +183,7 @@
             lightIcon.style.display = 'block';
             localStorage.setItem('theme', 'dark');
         }
+        renderMermaid();
     };
     if (localStorage.getItem('theme') === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark');

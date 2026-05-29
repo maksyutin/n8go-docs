@@ -9,8 +9,8 @@ import (
 	"github.com/fatih/color"
 )
 
-func runGenerator() error {
-	siteManifest, err := manifest.ParseSiteManifest(core.SiteManifestName)
+func runGenerator(configPath string) error {
+	siteManifest, err := manifest.ParseSiteManifest(configPath)
 	if err != nil {
 		return err
 	}

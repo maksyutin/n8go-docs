@@ -623,3 +623,62 @@ a.toc-item:hover {
   background-color: rgb(34 39 46 / 1);
   border-color: rgb(92 97 122 / 1);
 }
+/* Mermaid diagrams */
+.mermaid {
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+    margin: 1rem 0;
+    cursor: zoom-in;
+}
+.mermaid svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Mermaid lightbox */
+.mermaid-lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, .85);
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+}
+.mermaid-lightbox.is-open {
+    display: flex;
+}
+.mermaid-lightbox__inner {
+    background: #fff;
+    border-radius: .4rem;
+    padding: 2rem;
+    width: 92vw;
+    max-height: 92vh;
+    overflow: auto;
+    cursor: default;
+    box-sizing: border-box;
+}
+[data-theme="dark"] .mermaid-lightbox__inner {
+    background: #1e2129;
+}
+.mermaid-lightbox__inner svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-width: 600px;
+}
+.mermaid-lightbox__close {
+    position: fixed;
+    top: 1rem;
+    right: 1.2rem;
+    font-size: 2rem;
+    line-height: 1;
+    color: #fff;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    z-index: 10000;
+}

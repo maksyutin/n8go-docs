@@ -1,6 +1,16 @@
 (async function () {
+    var ROOT_PATH = (function () {
+        var scripts = document.querySelectorAll('script[src*="search.js"]');
+        if (scripts.length) {
+            var src = scripts[scripts.length - 1].getAttribute('src');
+            return src.replace(/js\/search\.js$/, '');
+        }
+        return '/';
+    })();
+
     async function fetchSearchIndex() {
-        const response = await fetch('/search/index.json');
+        const response = await fetch(ROOT_PATH + 'search/index.json');
+        if (!response.ok) throw new Error('Search index not found: ' + response.status);
         return response.json();
     }
     var searchIndex = await fetchSearchIndex()
@@ -71,7 +81,7 @@
             results.map((result) => {
                 html += `
                     <li>
-                        <a class="search-result" href="${result.Url}">
+                        <a class="search-result" href="${ROOT_PATH}${result.Url}">
                             <span>${result.Title}</span>
                             <p>${result.Content}</p>
                         </a>

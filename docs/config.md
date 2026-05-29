@@ -6,8 +6,8 @@ n8go-docs is configured via a `n8go-docs.yaml` file in the working directory fro
 
 ```yaml
 name: My Docs
-input: docs
-output: docs_gen
+docs_dir: docs
+site_dir: site
 theme: default
 
 search_engine: flexsearch
@@ -18,6 +18,10 @@ custom_font: Roboto
 head_tags:
   - '<link rel="preconnect" href="https://fonts.googleapis.com">'
   - '<link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">'
+
+exclude_docs:
+  - drafts/
+  - "**/secret-*.md"
 ```
 
 ## Options
@@ -32,22 +36,22 @@ name: My Docs
 
 ---
 
-### input
+### docs_dir
 
 Directory containing the Markdown source files. Default: `docs`.
 
 ```yaml
-input: docs
+docs_dir: docs
 ```
 
 ---
 
-### output
+### site_dir
 
-Directory where static HTML is written. Default: `docs_gen`.
+Directory where static HTML is written. Default: `site`.
 
 ```yaml
-output: docs_gen
+site_dir: site
 ```
 
 ---
@@ -138,3 +142,67 @@ Path to the logo image (relative to the output directory). Default: `img/book.sv
 ```yaml
 logo: img/my-logo.svg
 ```
+
+---
+
+### extra_css
+
+List of CSS files (paths relative to `docs_dir`) copied to the output and linked on every page.
+
+```yaml
+extra_css:
+  - css/extra.css
+```
+
+---
+
+### extra_javascript
+
+List of JavaScript files (paths relative to `docs_dir`) copied to the output and added as `<script defer>` on every page.
+
+```yaml
+extra_javascript:
+  - js/extra.js
+```
+
+---
+
+### nav
+
+Explicit navigation tree. Each entry is either a single page (`Title: file.md`) or a section with nested children. When omitted, the menu is built automatically from the filesystem.
+
+```yaml
+nav:
+  - Home: index.md
+  - User Guide:
+      - Installation: guide/installation.md
+      - Configuration: guide/configuration.md
+```
+
+---
+
+### exclude_docs
+
+Glob patterns of files and directories to exclude from the build entirely — they are neither rendered nor copied as static assets. Patterns are matched relative to `docs_dir`.
+
+Can be given as a multiline string:
+
+```yaml
+exclude_docs: |
+  drafts/
+  **/secret-*.md
+  wip.md
+```
+
+…or as a YAML list:
+
+```yaml
+exclude_docs:
+  - drafts/
+  - "**/secret-*.md"
+  - wip.md
+```
+
+Both forms support inline comments (`# …`) and ignore blank lines. Supported wildcards: `*`, `**`, `?`. A pattern without `/` matches the basename at any depth; `**` matches any number of path segments; a trailing `/` matches a directory and everything inside it.
+
+> In the list form, a pattern starting with `*` or `**` must be quoted (`- "**/secret-*.md"`) — otherwise YAML treats it as an alias. In the multiline-string form quoting is not needed.

@@ -1,0 +1,11 @@
+name: n8go-project
+input: docs_project
+site_dir: site_project
+custom_font: IBM Plex Sans
+extra_css:
+  - css/extra.css
+head_tags:
+  - '<link rel="preconnect" href="https://fonts.googleapis.com">'
+  - '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+  - '<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&display=swap" rel="stylesheet">'
+  - '<meta name="description" content="n8go-docs is a powerful documentation generator in Golang, Offers features like Full Text Search, Rich Markdown and Components.">'

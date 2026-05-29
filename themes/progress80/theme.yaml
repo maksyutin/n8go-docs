@@ -1,0 +1,10 @@
+name: Progress80
+description: Default theme for N8GoDocs, using Bootstrap 5
+repository: https://github.com/maksyutin/n8go-docs
+version: 1.0.0
+author: N8GoDocs
+license: MIT
+
+highlighting:
+  style: xcode-dark
+  line_numbers: false

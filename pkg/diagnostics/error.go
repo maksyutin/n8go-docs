@@ -1,10 +1,15 @@
 package diagnostics
 
-import "log"
+import (
+	"fmt"
+	"log"
+	"os"
+)
 
 func HandleError(err error) {
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "error: %s\n", err.Error())
+		os.Exit(1)
 	}
 }
 

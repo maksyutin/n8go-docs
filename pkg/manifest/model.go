@@ -1,5 +1,13 @@
 package manifest
 
+// NavItem represents one entry in the explicit nav config.
+// Either File is set (leaf page) or Children is set (section).
+type NavItem struct {
+	Title    string
+	File     string    // path relative to InputPath, empty for sections
+	Children []NavItem // non-nil only for sections
+}
+
 type SiteManifest struct {
 	Name               string
 	ThemeId            string
@@ -12,6 +20,10 @@ type SiteManifest struct {
 	CustomFont         string
 	Logo               string
 	StripMdExtension   bool
+	ExtraCss           []string  // paths relative to InputPath, copied to output and linked on every page
+	ExtraJavascript    []string  // paths relative to InputPath, copied to output and added as <script> on every page
+	Nav                []NavItem // explicit navigation; empty = auto-build from filesystem
+	ExcludeDocs        []string  // glob patterns (relative to InputPath) of files/dirs to exclude entirely
 }
 
 type HighlightingConfig struct {
