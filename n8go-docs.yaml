@@ -1,4 +1,4 @@
-name: XBoiler
+name: n8go-docs
 docs_dir: docs
 site_dir: site
 theme: default
@@ -8,22 +8,7 @@ search_content_limit: 500
 strip_md_extension: true
 
 nav:
-  - О проекте: README.md
-  - Архитектурные решения: adr/README.md
-  - Для пользователя:
-      - Installation: user-guide/installation.md
-      - Configuration: user-guide/configuration.md
-  - Для оператора:
-      - API: dev-guide/api.md
-      - Themes: dev-guide/themes.md
-      - Plugins: dev-guide/plugins.md
-  - Для разработчика:
-      - Writing Docs: about/writing-your-docs.md
-      - Contributing: about/contributing.md
-      - Release Notes: about/release-notes.md
-      - License: about/license.md
-
-exclude_docs: |
-  drafts/
-  **/secret-*.md
-  wip.md
+  - Introduction: index.md
+  - Components: components.md
+  - Configuration: config.md
+  - Themeing: themeing.md
