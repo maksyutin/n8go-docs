@@ -1,33 +1,41 @@
-# This is an example .goreleaser.yml file with some sensible defaults.
-# Make sure to check the documentation at https://goreleaser.com
+version: 2
+
 project_name: n8go-docs
+
 release:
   github:
     owner: maksyutin
     name: n8go-docs
+
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
-    - go generate ./...
+
 builds:
-  - env:
-      - CGO_ENABLED=1
+  - id: n8go-docs
+    binary: n8go-docs
+    env:
+      - CGO_ENABLED=0
     goos:
+      - linux
       - windows
       - darwin
+
 archives:
-  - replacements:
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
-      386: i386
-      amd64: x86_64
+  - ids:
+      - n8go-docs
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+
 checksum:
-  name_template: 'checksums.txt'
+  name_template: checksums.txt
+
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
+
 changelog:
   sort: asc
   filters:
@@ -35,6 +43,5 @@ changelog:
       - '^docs:'
       - '^test:'
 
-# modelines, feel free to remove those if you don't want/use them:
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
