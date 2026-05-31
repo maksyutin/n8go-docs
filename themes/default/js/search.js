@@ -108,11 +108,13 @@
     var searchBtn = document.getElementById('search_btn');
     searchBtn.onclick = function () {
         searchContainer.style.display = 'block';
+        searchBtn.setAttribute('aria-expanded', 'true');
         searchInput.focus();
     }
 
     var searchModalCloseBtn = document.getElementById('search-modal-close');
     searchModalCloseBtn.onclick = function () {
         searchContainer.style.display = 'none';
+        searchBtn.setAttribute('aria-expanded', 'false');
     }
 })();

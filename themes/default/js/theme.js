@@ -81,6 +81,7 @@
     menuButton.onclick = function () {
         nav.classList.toggle('open');
         mainContent.classList.toggle('nav-open');
+        menuButton.setAttribute('aria-expanded', nav.classList.contains('open') ? 'true' : 'false');
     }
 
     function setHTML(o, html, clear) {
@@ -168,30 +169,31 @@
     initMermaid();
     initMermaidLightbox();
 
-    var darkIcon = document.getElementById('dark-icon');
-    var lightIcon = document.getElementById('light-icon');
     var toggleBtn = document.getElementById('toggle_btn');
+
+    function setTheme(theme) {
+        if (theme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            toggleBtn.setAttribute('aria-label', 'Switch to light theme');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+            toggleBtn.setAttribute('aria-label', 'Switch to dark theme');
+        }
+    }
+
     toggleBtn.onclick = function () {
         if (document.documentElement.getAttribute('data-theme') === 'dark') {
-            document.documentElement.removeAttribute('data-theme');
-            darkIcon.style.display = 'block';
-            lightIcon.style.display = 'none';
+            setTheme('light');
             localStorage.setItem('theme', 'light');
         } else {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            darkIcon.style.display = 'none';
-            lightIcon.style.display = 'block';
+            setTheme('dark');
             localStorage.setItem('theme', 'dark');
         }
         renderMermaid();
     };
     if (localStorage.getItem('theme') === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        darkIcon.style.display = 'none';
-        lightIcon.style.display = 'block';
+        setTheme('dark');
     } else {
-        document.documentElement.removeAttribute('data-theme');
-        darkIcon.style.display = 'block';
-        lightIcon.style.display = 'none';
+        setTheme('light');
     }
 })();
