@@ -7,10 +7,16 @@ A clean static documentation generator written in Go.
 - Write documentation in Markdown (GitHub Flavored)
 - Outputs static HTML — host anywhere (GitHub Pages, S3, nginx, …)
 - Syntax highlighting, emoji support
-- Extensible with custom themes (Go templates)
+- Extensible with custom Jinja2-compatible themes
 - Full-text search powered by [FlexSearch](https://github.com/nextapps-de/flexsearch) or [Fuse.js](https://fusejs.io/)
 - YAML configuration (`n8go-docs.yaml`)
 - `.md` extension stripping for clean URLs
+
+## Theme runtime notes
+
+- Theme templates are rendered by a Go-native Jinja2-compatible engine (Jinja2go via `gonja/v2`).
+- Theme static files are emitted under `/assets/css`, `/assets/js`, and `/assets/img`.
+- In the bundled `material` theme, internal navigation updates page content and sidebars without reloading header/footer.
 
 ## Installation
 
@@ -21,9 +27,12 @@ Download the latest binary from the [releases](https://github.com/maksyutin/n8go
 **1. Create `n8go-docs.yaml` in your project root:**
 
 ```yaml
-name: My Docs
-input: docs
-output: docs_gen
+site_name: My Docs
+site_description: Project documentation for My Docs
+site_url: https://example.com/docs/
+docs_dir: docs
+site_dir: docs_gen
+use_directory_urls: true
 search_engine: flexsearch   # flexsearch | fuse
 search_content_limit: 500
 strip_md_extension: true
@@ -44,9 +53,9 @@ n8go-docs serve
 The server starts on port `9080` by default. Pass a custom port as an argument:
 
 ```bash
-n8go-docs serve 3000
+n8go-docs serve --port 3000
 ```
 
 ## Configuration
 
-See [Configuration](docs_src/config.md) for all available options.
+See [Configuration](docs/config.md) for all available options.

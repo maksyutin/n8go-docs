@@ -5,7 +5,16 @@ n8go-docs is configured via a `n8go-docs.yaml` file in the working directory fro
 ## Full example
 
 ```yaml
-name: My Docs
+site_name: My Docs
+site_description: Project documentation for My Docs
+site_url: https://example.com/docs/
+
+# Optional local development address.
+#dev_addr: 127.0.0.1:8000
+
+# Use directory URLs such as /guide/ instead of /guide.html.
+use_directory_urls: true
+
 docs_dir: docs
 site_dir: site
 theme: default
@@ -26,12 +35,68 @@ exclude_docs:
 
 ## Options
 
-### name *(required)*
+### site_name *(required)*
 
 The site title. Used in HTML `<title>` tags: `Page — My Docs`.
 
 ```yaml
-name: My Docs
+site_name: My Docs
+```
+
+---
+
+### site_description
+
+Short site description for themes, SEO metadata, and generated auxiliary files.
+
+```yaml
+site_description: Project documentation for My Docs
+```
+
+---
+
+### site_url
+
+Public base URL of the generated site. This is the standard parameter for production builds and is recommended whenever the site is published.
+
+```yaml
+site_url: https://108n.online/xboiler
+```
+
+With this value, a page at `adr/0016-versioning-and-compatibility/` is linked as:
+
+```text
+https://108n.online/xboiler/adr/0016-versioning-and-compatibility/
+```
+
+`site_url` is used for absolute links in SEO, sitemap generation, metadata, `base_url`, static asset URLs, navigation URLs, and search index URLs. Do not confuse it with the template variable `base_url` or the local development option `dev_addr`.
+
+If `site_url` is omitted:
+
+- canonical links are not generated;
+- `sitemap.xml` uses relative paths;
+- search engines may see duplicate content when the same site is served from multiple hosts or paths.
+
+The trailing slash is optional; n8go-docs normalizes it.
+
+---
+
+### dev_addr
+
+Local development address used by `n8go-docs serve` when `--port` is not passed.
+
+```yaml
+dev_addr: 127.0.0.1:8000
+```
+
+---
+
+### use_directory_urls
+
+When `true`, pages are generated as directory indexes such as `guide/index.html` and linked as `/guide/`. Default: `true`.
+
+```yaml
+use_directory_urls: true
 ```
 
 ---
@@ -137,10 +202,10 @@ head_tags:
 
 ### logo
 
-Path to the logo image (relative to the output directory). Default: `img/book.svg`.
+Path to the logo image (relative to the output directory). Default: `assets/img/logo.svg`.
 
 ```yaml
-logo: img/my-logo.svg
+logo: assets/img/my-logo.svg
 ```
 
 ---
