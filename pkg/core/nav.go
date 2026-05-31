@@ -12,7 +12,6 @@ import (
 	"n8go-docs/utils"
 )
 
-
 func isIndexFile(filePath string) bool {
 	return utils.GetFileName(filePath) == IndexFileName
 }

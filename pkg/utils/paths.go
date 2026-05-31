@@ -1,10 +1,10 @@
 package utils
 
 import (
+	"n8go-docs/diagnostics"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"n8go-docs/diagnostics"
 
 	"github.com/iancoleman/strcase"
 )

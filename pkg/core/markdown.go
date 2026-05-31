@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+
 	"n8go-docs/manifest"
 	"n8go-docs/utils"
 
 	hhtml "github.com/alecthomas/chroma/v2/formatters/html"
 	headingid "github.com/jkboxomine/goldmark-headingid"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	emoji "github.com/yuin/goldmark-emoji"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
@@ -51,6 +53,12 @@ func analyzeDocument(astRoot ast.Node, source []byte, pageInfo *pageInfo) {
 	})
 }
 
+func markdownHTMLPolicy() *bluemonday.Policy {
+	policy := bluemonday.UGCPolicy()
+	policy.AllowStyling()
+	return policy
+}
+
 func renderMarkdownPage(mdFile string, theme manifest.ThemeManifest, siteManifest manifest.SiteManifest) (pageInfo, error) {
 	result := pageInfo{
 		FilePath: filepath.Clean(mdFile),
@@ -69,6 +77,7 @@ func renderMarkdownPage(mdFile string, theme manifest.ThemeManifest, siteManifes
 				highlighting.WithStyle(theme.Highlighting.Style),
 				highlighting.WithFormatOptions(
 					hhtml.WithLineNumbers(theme.Highlighting.LineNumbers),
+					hhtml.WithClasses(true),
 				),
 			),
 			emoji.New(
@@ -96,7 +105,7 @@ func renderMarkdownPage(mdFile string, theme manifest.ThemeManifest, siteManifes
 	var buf bytes.Buffer
 	err = md.Renderer().Render(&buf, source, astRoot)
 	if err == nil {
-		result.Body = buf.String()
+		result.Body = markdownHTMLPolicy().Sanitize(buf.String())
 	}
 
 	return result, err

@@ -56,14 +56,38 @@
         }).slice(0, 10);
     }
 
-    function highlight(text, query) {
-        if (!text || !query) return escHtml(text || '');
+    function appendHighlightedText(parent, text, query) {
+        text = String(text || '');
+        if (!query) {
+            parent.textContent = text;
+            return;
+        }
         var esc = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        return escHtml(text).replace(new RegExp('(' + esc + ')', 'gi'), '<mark>$1</mark>');
+        var pattern = new RegExp(esc, 'gi');
+        var lastIndex = 0;
+        var match;
+
+        while ((match = pattern.exec(text)) !== null) {
+            if (match.index > lastIndex) {
+                parent.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+            }
+            var mark = document.createElement('mark');
+            mark.textContent = match[0];
+            parent.appendChild(mark);
+            lastIndex = pattern.lastIndex;
+        }
+
+        if (lastIndex < text.length) {
+            parent.appendChild(document.createTextNode(text.substring(lastIndex)));
+        }
     }
 
-    function escHtml(str) {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    function resultUrl(url) {
+        var cleanUrl = String(url || '').replace(/[\u0000-\u001F\u007F]/g, '');
+        if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(cleanUrl)) {
+            cleanUrl = './' + cleanUrl;
+        }
+        return ROOT_PATH + cleanUrl;
     }
 
     function truncate(text, maxLen) {
@@ -75,27 +99,38 @@
     function renderResults(results, query) {
         if (results.length === 0) {
             resultMeta.textContent = 'No results for "' + query + '"';
-            resultList.innerHTML = '';
+            resultList.textContent = '';
             return;
         }
         resultMeta.textContent = results.length + ' result' + (results.length === 1 ? '' : 's') + ' for "' + query + '"';
-        var html = '';
+        resultList.textContent = '';
         results.forEach(function (item) {
             var title = item.Title || 'Untitled';
             var content = truncate(item.Content || '', 120);
-            html += '<li class="md-search-result__item">' +
-                '<a href="' + escHtml(item.Url) + '">' +
-                '<p class="md-search-result__title">' + highlight(title, query) + '</p>' +
-                '<p class="md-search-result__teaser">' + highlight(content, query) + '</p>' +
-                '</a></li>';
+            var li = document.createElement('li');
+            var link = document.createElement('a');
+            var titleElement = document.createElement('p');
+            var teaserElement = document.createElement('p');
+
+            li.className = 'md-search-result__item';
+            titleElement.className = 'md-search-result__title';
+            teaserElement.className = 'md-search-result__teaser';
+            link.setAttribute('href', resultUrl(item.Url));
+
+            appendHighlightedText(titleElement, title, query);
+            appendHighlightedText(teaserElement, content, query);
+
+            link.appendChild(titleElement);
+            link.appendChild(teaserElement);
+            li.appendChild(link);
+            resultList.appendChild(li);
         });
-        resultList.innerHTML = html;
     }
 
     function doSearch(query) {
         if (!query || query.length < 2) {
             resultMeta.textContent = 'Type to start searching';
-            resultList.innerHTML = '';
+            resultList.textContent = '';
             return;
         }
         loadIndex().then(function () {

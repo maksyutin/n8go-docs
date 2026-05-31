@@ -229,8 +229,8 @@ func TestProcessHtml_ExtraCssJs(t *testing.T) {
 
 func TestProcessHtml_NestedPageLinks(t *testing.T) {
 	index := PageIndex{
-		"docs/index.md":      ".",
-		"docs/config.md":     "config",
+		"docs/index.md":  ".",
+		"docs/config.md": "config",
 	}
 	ctx := makeCtx("docs/guide", "guide/page", "../../", index)
 

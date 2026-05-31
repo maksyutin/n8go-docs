@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"n8go-docs/diagnostics"
 	"n8go-docs/manifest"
+
+	"github.com/microcosm-cc/bluemonday"
 )
 
 type SearchIndexEntry struct {
@@ -15,55 +17,67 @@ type SearchIndexEntry struct {
 	Content string
 }
 
-func AddToSearchIndex(siteManifest manifest.SiteManifest, entry SearchIndexEntry) {
+type SearchIndex struct {
+	entries []SearchIndexEntry
+}
+
+func NewSearchIndex() *SearchIndex {
+	return &SearchIndex{}
+}
+
+func (index *SearchIndex) Add(entry SearchIndexEntry) {
+	index.entries = append(index.entries, sanitizeSearchIndexEntry(entry))
+}
+
+func (index *SearchIndex) Write(siteManifest manifest.SiteManifest) error {
 	indexPath := filepath.Join(siteManifest.OutputPath, "search", "index.json")
+	if err := os.MkdirAll(filepath.Dir(indexPath), 0o755); err != nil {
+		return err
+	}
 
-	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
-		writeNewSearchIndex(indexPath, entry)
-	} else {
-		appendToSearchIndex(indexPath, entry)
+	data, err := json.Marshal(index.entries)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(indexPath, data, 0o644)
+}
+
+func sanitizeSearchIndexEntry(entry SearchIndexEntry) SearchIndexEntry {
+	policy := bluemonday.StrictPolicy()
+
+	return SearchIndexEntry{
+		Title:   normalizeSearchText(policy.Sanitize(entry.Title)),
+		Url:     sanitizeSearchURL(entry.Url),
+		Content: normalizeSearchText(policy.Sanitize(entry.Content)),
 	}
 }
 
-func writeNewSearchIndex(indexPath string, entry SearchIndexEntry) {
-	if err := os.MkdirAll(filepath.Dir(indexPath), os.ModePerm); err != nil {
-		diagnostics.PrintError(err, "failed to create search directory")
-		return
-	}
-
-	data, err := json.Marshal(entry)
-	if err != nil {
-		diagnostics.PrintError(err, "failed to marshal search content")
-		return
-	}
-
-	if err := os.WriteFile(indexPath, append([]byte("[ "), append(data, []byte(" ]")...)...), os.ModePerm); err != nil {
-		diagnostics.PrintError(err, "failed to write search index")
-	}
+func normalizeSearchText(text string) string {
+	return strings.Join(strings.Fields(text), " ")
 }
 
-func appendToSearchIndex(indexPath string, entry SearchIndexEntry) {
-	data, err := os.ReadFile(indexPath)
-	if err != nil {
-		diagnostics.PrintError(err, "failed to read search index file")
-		return
+func sanitizeSearchURL(rawURL string) string {
+	url := strings.TrimSpace(filepath.ToSlash(rawURL))
+	url = strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, url)
+
+	if hasSchemePrefix(url) {
+		return "./" + url
+	}
+	return url
+}
+
+func hasSchemePrefix(url string) bool {
+	colon := strings.IndexRune(url, ':')
+	if colon <= 0 {
+		return false
 	}
 
-	var existing []SearchIndexEntry
-	if err := json.Unmarshal(data, &existing); err != nil {
-		diagnostics.PrintError(err, "failed to unmarshal search index file")
-		return
-	}
-
-	existing = append(existing, entry)
-
-	jsonData, err := json.Marshal(existing)
-	if err != nil {
-		diagnostics.PrintError(err, "failed to marshal search content")
-		return
-	}
-
-	if err := os.WriteFile(indexPath, jsonData, os.ModePerm); err != nil {
-		diagnostics.PrintError(err, "failed to write search index")
-	}
+	slash := strings.IndexRune(url, '/')
+	return slash == -1 || colon < slash
 }

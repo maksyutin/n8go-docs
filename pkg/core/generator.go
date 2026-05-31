@@ -42,13 +42,23 @@ func GenerateDocumentation(siteManifest manifest.SiteManifest, themeManifest man
 	}
 
 	pageIndex := buildPageIndex(contexts)
+	var searchIndex *SearchIndex
+	if siteManifest.DefaultSearch {
+		searchIndex = NewSearchIndex()
+	}
 
 	for i := range contexts {
 		nav := cloneNavTree(navChildren)
 		markActiveNodes(nav, contexts[i].Url)
 		contexts[i].Nav = nav
 		contexts[i].Index = pageIndex
-		generateThemedHtmlForPage(&contexts[i], siteManifest, themeTemplate)
+		generateThemedHtmlForPage(&contexts[i], siteManifest, themeTemplate, searchIndex)
+	}
+
+	if searchIndex != nil {
+		if err := searchIndex.Write(siteManifest); err != nil {
+			return err
+		}
 	}
 
 	if err := copyStaticFiles(siteManifest, themeDir); err != nil {

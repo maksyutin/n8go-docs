@@ -10,13 +10,13 @@ func setupSrcDir(t *testing.T) string {
 	t.Helper()
 	src := t.TempDir()
 	files := map[string]string{
-		"index.md":         "# Index",
-		"style.css":        "body {}",
-		"img/photo.png":    "PNG",
-		"img/diagram.svg":  "SVG",
-		"sub/page.md":      "# Sub",
-		"sub/script.js":    "var x=1",
-		"sub/data.json":    `{"k":"v"}`,
+		"index.md":        "# Index",
+		"style.css":       "body {}",
+		"img/photo.png":   "PNG",
+		"img/diagram.svg": "SVG",
+		"sub/page.md":     "# Sub",
+		"sub/script.js":   "var x=1",
+		"sub/data.json":   `{"k":"v"}`,
 	}
 	for rel, content := range files {
 		path := filepath.Join(src, rel)

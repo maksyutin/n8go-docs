@@ -4,9 +4,9 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"n8go-docs/diagnostics"
 	"os"
 	"path/filepath"
-	"n8go-docs/diagnostics"
 )
 
 func copyFile(src string, dst string) error {

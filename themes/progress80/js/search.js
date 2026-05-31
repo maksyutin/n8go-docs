@@ -12,52 +12,72 @@
     });
     console.log('Fuse.js Initialized');
 
-    // https://stackoverflow.com/questions/67352406/fuse-js-includematches-highlighting-how-does-it-work
-    const highlight = (fuseSearchResult, highlightClassName = 'highlight') => {
-        const set = (obj, path, value) => {
-            const pathValue = path.split('.');
-            let i;
-      
-            for (i = 0; i < pathValue.length - 1; i++) {
-              obj = obj[pathValue[i]];
+    const appendHighlightedText = (parent, inputText, regions = [], highlightClassName = 'highlight') => {
+        const text = String(inputText || '');
+        let nextTextIndex = 0;
+
+        regions.forEach((region) => {
+            const start = Math.max(region[0], nextTextIndex);
+            const end = Math.min(region[1] + 1, text.length);
+            if (start > nextTextIndex) {
+                parent.appendChild(document.createTextNode(text.substring(nextTextIndex, start)));
             }
-      
-            obj[pathValue[i]] = value;
-        };
-      
-        const generateHighlightedText = (inputText, regions = []) => {
-          let content = '';
-          let nextUnhighlightedRegionStartingIndex = 0;
-      
-          regions.forEach(region => {
-            const lastRegionNextIndex = region[1] + 1;
-      
-            content += [
-              inputText.substring(nextUnhighlightedRegionStartingIndex, region[0]),
-              `<span class="${highlightClassName}">`,
-              inputText.substring(region[0], lastRegionNextIndex),
-              '</span>',
-            ].join('');
-      
-            nextUnhighlightedRegionStartingIndex = lastRegionNextIndex;
-          });
-      
-          content += inputText.substring(nextUnhighlightedRegionStartingIndex);
-      
-          return content;
-        };
-      
-        return fuseSearchResult
-          .filter(({ matches }) => matches && matches.length)
-          .map(({ item, matches }) => {
-            const highlightedItem = { ...item };
-      
-            matches.forEach((match) => {
-              set(highlightedItem, match.key, generateHighlightedText(match.value, match.indices));
-            });
-      
-            return highlightedItem;
-          });
+            if (end > start) {
+                const mark = document.createElement('span');
+                mark.className = highlightClassName;
+                mark.textContent = text.substring(start, end);
+                parent.appendChild(mark);
+            }
+            nextTextIndex = end;
+        });
+
+        if (nextTextIndex < text.length) {
+            parent.appendChild(document.createTextNode(text.substring(nextTextIndex)));
+        }
+    };
+
+    const matchesForKey = (matches = [], key) => {
+        const match = matches.find((item) => item.key === key);
+        return match ? match.indices : [];
+    };
+
+    const resultUrl = (url) => {
+        let cleanUrl = String(url || '').replace(/[\u0000-\u001F\u007F]/g, '');
+        if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(cleanUrl)) {
+            cleanUrl = './' + cleanUrl;
+        }
+        return cleanUrl;
+    };
+
+    const appendEmptyResult = (parent) => {
+        const wrapper = document.createElement('center');
+        const message = document.createElement('span');
+        message.style.color = '#7f8497';
+        message.style.fontSize = '0.9em';
+        message.style.textAlign = 'center';
+        message.style.paddingTop = '10px';
+        message.style.paddingBottom = '10px';
+        message.textContent = 'No results found. Make sure to have atleast 3 characters.';
+        wrapper.appendChild(message);
+        parent.appendChild(wrapper);
+    };
+
+    const appendSearchResult = (parent, result) => {
+        const item = result.item || {};
+        const li = document.createElement('li');
+        const link = document.createElement('a');
+        const title = document.createElement('span');
+        const content = document.createElement('p');
+
+        link.className = 'search-result';
+        link.setAttribute('href', resultUrl(item.Url));
+        appendHighlightedText(title, item.Title, matchesForKey(result.matches, 'Title'));
+        appendHighlightedText(content, item.Content, matchesForKey(result.matches, 'Content'));
+
+        link.appendChild(title);
+        link.appendChild(content);
+        li.appendChild(link);
+        parent.appendChild(li);
     };
 
     var searchInput = document.getElementById('search-input');
@@ -65,24 +85,14 @@
     searchInput.addEventListener('keyup', function (e) {
         var searchResults = document.getElementById('search-results');
         var searchValue = e.target.value;
-        var results = highlight(fuse.search(searchValue));
-        var html = '';
-        if (results) {
-            results.map((result) => {
-                html += `
-                    <li>
-                        <a class="search-result" href="${result.Url}">
-                            <span>${result.Title}</span>
-                            <p>${result.Content}</p>
-                        </a>
-                    </li>
-                `;
-            });
+        var results = fuse.search(searchValue);
+        searchResults.textContent = '';
+        if (results.length) {
+            results.forEach((result) => appendSearchResult(searchResults, result));
         }
         if (!results.length) {
-            html = '<center><span style="color: #7f8497; font-size: 0.9em; text-align: center; padding-top: 10px; padding-bottom: 10px;">No results found. Make sure to have atleast 3 characters.</span></center>';
+            appendEmptyResult(searchResults);
         }
-        searchResults.innerHTML = html;
     });
     var searchContainer = document.getElementById('search-container');
     var searchBtn = document.getElementById('search_btn');

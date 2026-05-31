@@ -1,6 +1,6 @@
 module n8go-docs
 
-go 1.18
+go 1.25.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
@@ -11,7 +11,7 @@ require (
 	github.com/jkboxomine/goldmark-headingid v0.0.0-20200109122657-8b6c16c18388
 	github.com/yuin/goldmark v1.4.15
 	github.com/yuin/goldmark-emoji v1.0.1
-	golang.org/x/net v0.0.0-20221002022538-bcab6841153b
+	golang.org/x/net v0.55.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -29,5 +29,5 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.21
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20220924101305-151362477c87
-	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 )

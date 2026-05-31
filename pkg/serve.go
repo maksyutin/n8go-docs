@@ -2,14 +2,14 @@ package main
 
 import (
 	"log"
+	"n8go-docs/diagnostics"
+	"n8go-docs/manifest"
+	"n8go-docs/utils"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
-	"n8go-docs/diagnostics"
-	"n8go-docs/manifest"
-	"n8go-docs/utils"
 
 	"github.com/fatih/color"
 	"github.com/fsnotify/fsnotify"

@@ -67,7 +67,7 @@ func openOutputFileForPage(ctx *pageContext, siteManifest manifest.SiteManifest)
 	return os.Create(filepath.Join(outPath, "index.html"))
 }
 
-func generateThemedHtmlForPage(ctx *pageContext, siteManifest manifest.SiteManifest, themeTemplate *template.Template) {
+func generateThemedHtmlForPage(ctx *pageContext, siteManifest manifest.SiteManifest, themeTemplate *template.Template, searchIndex *SearchIndex) {
 	mdFile := ctx.Page.FileName
 
 	writer, err := openOutputFileForPage(ctx, siteManifest)
@@ -87,8 +87,11 @@ func generateThemedHtmlForPage(ctx *pageContext, siteManifest manifest.SiteManif
 		return
 	}
 
-	if siteManifest.DefaultSearch {
-		indexPageContent(ctx, siteManifest, htmlBuf.String())
+	if siteManifest.DefaultSearch && searchIndex != nil {
+		entry, ok := indexPageContent(ctx, siteManifest, htmlBuf.String())
+		if ok {
+			searchIndex.Add(entry)
+		}
 	}
 
 	if err = writer.Close(); err != nil {
@@ -96,29 +99,29 @@ func generateThemedHtmlForPage(ctx *pageContext, siteManifest manifest.SiteManif
 	}
 }
 
-func indexPageContent(ctx *pageContext, siteManifest manifest.SiteManifest, rawHtml string) {
+func indexPageContent(ctx *pageContext, siteManifest manifest.SiteManifest, rawHtml string) (SearchIndexEntry, bool) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rawHtml))
 	if err != nil {
 		diagnostics.PrintError(err, "failed to parse HTML for search indexing: "+ctx.Page.FileName)
-		return
+		return SearchIndexEntry{}, false
 	}
 
 	content, err := doc.Find(".main-content").Html()
 	if err != nil {
 		diagnostics.PrintError(err, "failed to find main content for "+ctx.Page.FileName)
-		return
+		return SearchIndexEntry{}, false
 	}
 
 	content = bluemonday.StrictPolicy().Sanitize(content)
-	content = strings.ReplaceAll(content, "\n", " ")
+	content = strings.Join(strings.Fields(content), " ")
 
 	if lim := siteManifest.SearchContentLimit; lim > 0 && len([]rune(content)) > lim {
 		content = string([]rune(content)[:lim])
 	}
 
-	AddToSearchIndex(siteManifest, SearchIndexEntry{
+	return SearchIndexEntry{
 		Title:   ctx.Page.Title,
 		Url:     ctx.Url,
 		Content: content,
-	})
+	}, true
 }

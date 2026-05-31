@@ -1,10 +1,10 @@
 package main
 
 import (
-	"os"
 	"n8go-docs/core"
 	"n8go-docs/diagnostics"
 	"n8go-docs/manifest"
+	"os"
 
 	"github.com/fatih/color"
 )

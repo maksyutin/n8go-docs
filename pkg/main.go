@@ -73,8 +73,8 @@ const appVersion = "0.1.0"
 
 // CLI is the root command.
 type CLI struct {
-	Config  string `short:"c" long:"config"  help:"Path to config file" default:"n8go-docs.yaml" type:"path" placeholder:"<path>"`
-	JSON    bool   `          long:"json"    help:"Output machine-readable JSON (where supported)"`
+	Config string `short:"c" long:"config"  help:"Path to config file" default:"n8go-docs.yaml" type:"path" placeholder:"<path>"`
+	JSON   bool   `          long:"json"    help:"Output machine-readable JSON (where supported)"`
 
 	Build   BuildCommand   `cmd:"" name:"build"   help:"Build the documentation site" aliases:"generate"`
 	Serve   ServeCommand   `cmd:"" name:"serve"   help:"Start live-reload development server"`

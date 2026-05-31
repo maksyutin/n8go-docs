@@ -2,11 +2,11 @@ package main
 
 import (
 	"errors"
+	"n8go-docs/core"
+	"n8go-docs/manifest"
 	"os"
 	"path"
 	"path/filepath"
-	"n8go-docs/core"
-	"n8go-docs/manifest"
 )
 
 func findThemesBaseDir() (string, error) {
