@@ -166,8 +166,12 @@ func TestScanDir_FindsMatchingExtension(t *testing.T) {
 	files := []string{"a.md", "b.md", "c.html", "d.txt", "sub/e.md"}
 	for _, f := range files {
 		path := filepath.Join(dir, f)
-		os.MkdirAll(filepath.Dir(path), 0755)
-		os.WriteFile(path, []byte(""), 0644)
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(""), 0644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	got, err := ScanDir(dir, ".md")
@@ -181,7 +185,9 @@ func TestScanDir_FindsMatchingExtension(t *testing.T) {
 
 func TestScanDir_NoMatchingFiles(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "page.html"), []byte(""), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "page.html"), []byte(""), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	got, err := ScanDir(dir, ".md")
 	if err != nil {

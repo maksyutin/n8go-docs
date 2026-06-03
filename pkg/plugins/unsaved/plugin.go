@@ -62,7 +62,7 @@ func (p *Plugin) handleUnsaved(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	// Simple JSON array without import overhead
-	w.Write([]byte(`["` + strings.Join(files, `","`) + `"]`))
+	_, _ = w.Write([]byte(`["` + strings.Join(files, `","`) + `"]`))
 }
 
 // Ensure Plugin satisfies all interfaces at compile time.

@@ -20,7 +20,7 @@ const editorMountPath = "/_editor"
 
 func DefaultNotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
-	w.Write([]byte("404 - Not Found"))
+	_, _ = w.Write([]byte("404 - Not Found"))
 }
 
 func FileServerWithCustom404(fs http.FileSystem, addr string) http.Handler {

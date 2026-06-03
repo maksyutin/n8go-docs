@@ -22,7 +22,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"image/color"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -362,13 +361,6 @@ func htmlEsc(s string) string {
 		`>`, "&gt;",
 	)
 	return r.Replace(s)
-}
-
-// contentHash hashes an io.Reader for cache key derivation.
-func contentHash(r io.Reader) string {
-	h := sha256.New()
-	_, _ = io.Copy(h, r)
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 // Compile-time interface checks.

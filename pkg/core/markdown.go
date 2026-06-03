@@ -140,17 +140,17 @@ func codeLanguageAttrs(language string) string {
 
 func renderHighlightWrapper(w util.BufWriter, context highlighting.CodeBlockContext, entering bool) {
 	if entering {
-		w.WriteString(`<div class="highlight">`)
+		_, _ = w.WriteString(`<div class="highlight">`)
 		if !context.Highlighted() {
-			w.WriteString(`<pre><code` + codeLanguageAttrs(codeBlockLanguage(context)) + `>`)
+			_, _ = w.WriteString(`<pre><code` + codeLanguageAttrs(codeBlockLanguage(context)) + `>`)
 		}
 		return
 	}
 
 	if !context.Highlighted() {
-		w.WriteString(`</code></pre>`)
+		_, _ = w.WriteString(`</code></pre>`)
 	}
-	w.WriteString(`</div>`)
+	_, _ = w.WriteString(`</div>`)
 }
 
 func renderMarkdownPage(mdFile string, theme manifest.ThemeManifest, siteManifest manifest.SiteManifest) (pageInfo, error) {
