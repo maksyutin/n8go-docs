@@ -127,8 +127,8 @@ func TestPlugin_GeneratesValidPNG(t *testing.T) {
 // Prevents: generating a card for every page when it should be zero.
 func TestPlugin_DisabledCards_NoOutput(t *testing.T) {
 	p := social.New(social.Config{
-		Enabled: false,
-		Cards:   false,
+		Enabled:  false,
+		Cards:    false,
 		CardsDir: "assets/images/social",
 	})
 	out := t.TempDir()
@@ -362,9 +362,9 @@ func TestPlugin_LayoutOptions_TitleOverride(t *testing.T) {
 
 func TestPlugin_InterfaceCompliance(t *testing.T) {
 	p := social.NewWithDefaults(social.Config{})
-	var _ core.Plugin            = p
-	var _ core.InitHook          = p
-	var _ core.PageRenderedHook  = p
+	var _ core.Plugin = p
+	var _ core.InitHook = p
+	var _ core.PageRenderedHook = p
 	var _ core.BuildCompleteHook = p
 }
 

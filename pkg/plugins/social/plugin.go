@@ -372,7 +372,7 @@ func contentHash(r io.Reader) string {
 }
 
 // Compile-time interface checks.
-var _ core.Plugin           = (*Plugin)(nil)
-var _ core.InitHook         = (*Plugin)(nil)
+var _ core.Plugin = (*Plugin)(nil)
+var _ core.InitHook = (*Plugin)(nil)
 var _ core.PageRenderedHook = (*Plugin)(nil)
 var _ core.BuildCompleteHook = (*Plugin)(nil)

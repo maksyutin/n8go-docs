@@ -74,4 +74,3 @@ func writeFileBytes(filePath string, content []byte) error {
 	}
 	return os.WriteFile(filePath, content, 0o644)
 }
-

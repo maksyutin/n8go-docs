@@ -9,8 +9,8 @@ type Plugin interface {
 
 // BuildContext carries site-wide state available to plugins during a build.
 type BuildContext struct {
-	Site     interface{ GetInputPath() string }
-	NavTree  []*navNode
+	Site      interface{ GetInputPath() string }
+	NavTree   []*navNode
 	PageIndex PageIndex
 	OutputDir string
 }
