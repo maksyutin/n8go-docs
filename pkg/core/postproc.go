@@ -20,16 +20,12 @@ func isAnchorOnly(link string) bool {
 // Links to known pages are resolved via the PageIndex.
 // Resource links (no .md extension, not a known page) use RootPath prefix.
 func resolveHref(link string, ctx *pageContext) string {
-	if isAnchorOnly(link) || isExternalLink(link) {
+	if isAnchorOnly(link) || isExternalLink(link) || isPublicSiteURL(link, ctx.Site.SiteURL) {
 		return link
 	}
 
 	// Split anchor fragment
-	anchor := ""
-	if idx := strings.Index(link, "#"); idx != -1 {
-		anchor = link[idx:]
-		link = link[:idx]
-	}
+	link, anchor := splitAnchor(link)
 
 	if link == "" {
 		return anchor
@@ -50,6 +46,9 @@ func resolveHref(link string, ctx *pageContext) string {
 		absInput = filepath.ToSlash(absInput)
 
 		if targetUrl, ok := ctx.Index[absInput]; ok {
+			if ctx.Site.SiteURL != "" {
+				return resolvePublicURL(ctx.Site.SiteURL, targetUrl) + anchor
+			}
 			return relativeUrl(ctx.Url, targetUrl) + anchor
 		}
 	}
@@ -63,11 +62,17 @@ func resolveHref(link string, ctx *pageContext) string {
 	}
 	// "." means the site root directory.
 	if stripped == "." && anchor == "" {
+		if ctx.Site.SiteURL != "" {
+			return resolvePublicURL(ctx.Site.SiteURL, ".")
+		}
 		root := ctx.RootPath
 		if root == "" {
 			return "./"
 		}
 		return root
+	}
+	if ctx.Site.SiteURL != "" {
+		return resolvePublicURL(ctx.Site.SiteURL, stripped+anchor)
 	}
 	// Directory-style links (no file extension) get a trailing slash for clean URLs.
 	if filepath.Ext(stripped) == "" && anchor == "" {
@@ -111,12 +116,16 @@ func processHtmlNode(node *html.Node, ctx *pageContext) {
 		case "href":
 			node.Attr[idx].Val = resolveHref(attr.Val, ctx)
 		case "src":
-			if !isExternalLink(attr.Val) {
+			if !isExternalLink(attr.Val) && !isPublicSiteURL(attr.Val, ctx.Site.SiteURL) {
 				stripped := filepath.ToSlash(filepath.Clean(attr.Val))
 				for strings.HasPrefix(stripped, "../") {
 					stripped = stripped[3:]
 				}
-				node.Attr[idx].Val = ctx.RootPath + stripped
+				if ctx.Site.SiteURL != "" {
+					node.Attr[idx].Val = resolvePublicURL(ctx.Site.SiteURL, stripped)
+				} else {
+					node.Attr[idx].Val = ctx.RootPath + stripped
+				}
 			}
 		}
 	}

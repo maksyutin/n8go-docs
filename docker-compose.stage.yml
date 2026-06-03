@@ -1,0 +1,29 @@
+# Stage environment
+# IMAGE env var is injected by the deploy provider script
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/owner/n8go-docs:latest}
+    container_name: n8go-docs-stage
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./docs:/docs:ro
+      - ./themes:/themes:ro
+      - site_data:/site
+    environment:
+      - N8GO_ENV=stage
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  site_data:

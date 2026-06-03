@@ -38,7 +38,7 @@ type pageContext struct {
 	Site      manifest.SiteManifest
 	Nav       []*navNode
 	RootPath  string
-	Url       string
+	Url       string    // output directory path relative to site root
 	InputDir  string    // directory of the source .md file (for resolving relative links)
 	Index     PageIndex // site-wide mapping inputFile → outputUrl
 }

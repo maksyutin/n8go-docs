@@ -1,5 +1,9 @@
 # Binaries for programs and plugins
 /n8go-docs
+pkg/n8go-docs
+
+# Plugin cache
+**/.cache/
 *.exe
 *.exe~
 *.dll
@@ -23,3 +27,4 @@ site/
 site_test/
 site_project/
 dist/
+DEPLOY.md

@@ -24,7 +24,7 @@ func writeTempConfig(t *testing.T, content string) string {
 // Regression: generator used to silently read "output" key instead of "site_dir",
 // falling back to the default "site/" while deploy scripts expected "sites/".
 func TestParseSiteManifest_SiteDirKey(t *testing.T) {
-	path := writeTempConfig(t, "name: s\nsite_dir: sites\n")
+	path := writeTempConfig(t, "site_name: s\nsite_dir: sites\n")
 	m, err := ParseSiteManifest(path)
 	if err != nil {
 		t.Fatal(err)
@@ -37,7 +37,7 @@ func TestParseSiteManifest_SiteDirKey(t *testing.T) {
 
 // Regression: old "output" key must NOT be silently accepted.
 func TestParseSiteManifest_OutputKeyIgnored(t *testing.T) {
-	path := writeTempConfig(t, "name: s\noutput: custom_out\n")
+	path := writeTempConfig(t, "site_name: s\noutput: custom_out\n")
 	m, err := ParseSiteManifest(path)
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ func TestParseSiteManifest_OutputKeyIgnored(t *testing.T) {
 }
 
 func TestParseSiteManifest_DocsDirKey(t *testing.T) {
-	path := writeTempConfig(t, "name: s\ndocs_dir: content\n")
+	path := writeTempConfig(t, "site_name: s\ndocs_dir: content\n")
 	m, err := ParseSiteManifest(path)
 	if err != nil {
 		t.Fatal(err)
@@ -64,9 +64,34 @@ func TestParseSiteManifest_DocsDirKey(t *testing.T) {
 	}
 }
 
+func TestParseSiteManifest_SiteURL(t *testing.T) {
+	path := writeTempConfig(t, "site_name: s\nsite_url: https://108n.online/xboiler/\n")
+	m, err := ParseSiteManifest(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.SiteURL != "https://108n.online/xboiler" {
+		t.Errorf("SiteURL: got %q, want normalized site URL", m.SiteURL)
+	}
+}
+
+func TestParseSiteManifest_LegacyNameAndURLIgnored(t *testing.T) {
+	if _, err := ParseSiteManifest(writeTempConfig(t, "name: s\n")); err == nil {
+		t.Fatal("expected error when only legacy name is provided")
+	}
+
+	m, err := ParseSiteManifest(writeTempConfig(t, "site_name: s\nurl: https://legacy.example/docs\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.SiteURL != "" {
+		t.Fatalf("legacy url key should be ignored, got %q", m.SiteURL)
+	}
+}
+
 // Regression: old "input" key must NOT be silently accepted.
 func TestParseSiteManifest_InputKeyIgnored(t *testing.T) {
-	path := writeTempConfig(t, "name: s\ninput: custom_in\n")
+	path := writeTempConfig(t, "site_name: s\ninput: custom_in\n")
 	m, err := ParseSiteManifest(path)
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +108,7 @@ func TestParseSiteManifest_InputKeyIgnored(t *testing.T) {
 // ── ParseSiteManifest: defaults ──────────────────────────────────────────────
 
 func TestParseSiteManifest_Defaults(t *testing.T) {
-	path := writeTempConfig(t, "name: site\n")
+	path := writeTempConfig(t, "site_name: site\n")
 	m, err := ParseSiteManifest(path)
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +124,7 @@ func TestParseSiteManifest_Defaults(t *testing.T) {
 		{"InputPath", m.InputPath, filepath.Clean(filepath.Join(dir, "docs"))},
 		{"OutputPath", m.OutputPath, filepath.Clean(filepath.Join(dir, "site"))},
 		{"SearchEngine", m.SearchEngine, "flexsearch"},
-		{"Logo", m.Logo, "img/book.svg"},
+		{"Logo", m.Logo, "assets/img/logo.svg"},
 	}
 	for _, c := range cases {
 		if c.got != c.want {
@@ -116,13 +141,16 @@ func TestParseSiteManifest_Defaults(t *testing.T) {
 	if m.StripMdExtension {
 		t.Error("StripMdExtension default: want false")
 	}
+	if !m.UseDirectoryURLs {
+		t.Error("UseDirectoryURLs default: want true")
+	}
 }
 
 // ── ParseSiteManifest: path resolution ──────────────────────────────────────
 
 // Paths must be resolved relative to the config file, not os.Getwd().
 func TestParseSiteManifest_PathsRelativeToConfig(t *testing.T) {
-	path := writeTempConfig(t, "name: s\ndocs_dir: ./src\nsite_dir: ../build\n")
+	path := writeTempConfig(t, "site_name: s\ndocs_dir: ./src\nsite_dir: ../build\n")
 	m, err := ParseSiteManifest(path)
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +172,7 @@ func TestParseSiteManifest_MissingName(t *testing.T) {
 	path := writeTempConfig(t, "theme: default\n")
 	_, err := ParseSiteManifest(path)
 	if err == nil {
-		t.Error("expected error for missing name, got nil")
+		t.Error("expected error for missing site_name, got nil")
 	}
 }
 
@@ -156,7 +184,7 @@ func TestParseSiteManifest_FileNotFound(t *testing.T) {
 }
 
 func TestParseSiteManifest_InvalidYaml(t *testing.T) {
-	path := writeTempConfig(t, "name: [invalid\n")
+	path := writeTempConfig(t, "site_name: [invalid\n")
 	_, err := ParseSiteManifest(path)
 	if err == nil {
 		t.Error("expected error for invalid YAML, got nil")
@@ -167,7 +195,10 @@ func TestParseSiteManifest_InvalidYaml(t *testing.T) {
 
 func TestParseSiteManifest_AllFields(t *testing.T) {
 	yaml := `
-name: my-site
+site_name: my-site
+site_description: Documentation project
+dev_addr: 127.0.0.1:8000
+use_directory_urls: false
 theme: custom
 docs_dir: src
 site_dir: out
@@ -175,6 +206,7 @@ default_search: false
 search_engine: fuse
 search_content_limit: 200
 custom_font: Roboto
+site_url: https://example.com/docs/
 logo: img/logo.svg
 strip_md_extension: true
 head_tags:
@@ -192,8 +224,17 @@ extra_javascript:
 		t.Fatal(err)
 	}
 
-	if m.Name != "my-site" {
-		t.Errorf("Name: got %q", m.Name)
+	if m.SiteName != "my-site" {
+		t.Errorf("Name: got %q", m.SiteName)
+	}
+	if m.SiteDescription != "Documentation project" {
+		t.Errorf("SiteDescription: got %q", m.SiteDescription)
+	}
+	if m.DevAddr != "127.0.0.1:8000" {
+		t.Errorf("DevAddr: got %q", m.DevAddr)
+	}
+	if m.UseDirectoryURLs {
+		t.Error("UseDirectoryURLs: want false")
 	}
 	if m.ThemeId != "custom" {
 		t.Errorf("ThemeId: got %q", m.ThemeId)
@@ -216,6 +257,9 @@ extra_javascript:
 	if m.CustomFont != "Roboto" {
 		t.Errorf("CustomFont: got %q", m.CustomFont)
 	}
+	if m.SiteURL != "https://example.com/docs" {
+		t.Errorf("SiteURL: got %q", m.SiteURL)
+	}
 	if m.Logo != "img/logo.svg" {
 		t.Errorf("Logo: got %q", m.Logo)
 	}
@@ -236,7 +280,7 @@ extra_javascript:
 // ── ParseSiteManifest: nav ───────────────────────────────────────────────────
 
 func TestParseSiteManifest_NavFlat(t *testing.T) {
-	path := writeTempConfig(t, "name: s\nnav:\n  - Home: index.md\n  - About: about.md\n")
+	path := writeTempConfig(t, "site_name: s\nnav:\n  - Home: index.md\n  - About: about.md\n")
 	m, err := ParseSiteManifest(path)
 	if err != nil {
 		t.Fatal(err)
@@ -254,7 +298,7 @@ func TestParseSiteManifest_NavFlat(t *testing.T) {
 
 func TestParseSiteManifest_NavNested(t *testing.T) {
 	content := `
-name: s
+site_name: s
 nav:
   - Home: index.md
   - Guide:
@@ -281,7 +325,7 @@ nav:
 }
 
 func TestParseSiteManifest_NavEmpty(t *testing.T) {
-	path := writeTempConfig(t, "name: s\n")
+	path := writeTempConfig(t, "site_name: s\n")
 	m, err := ParseSiteManifest(path)
 	if err != nil {
 		t.Fatal(err)
@@ -294,7 +338,7 @@ func TestParseSiteManifest_NavEmpty(t *testing.T) {
 // ── ParseSiteManifest: exclude_docs ─────────────────────────────────────────
 
 func TestParseSiteManifest_ExcludeDocs(t *testing.T) {
-	content := "name: s\nexclude_docs: |\n  draft.md\n  private/*\n  **/secret-*.md\n"
+	content := "site_name: s\nexclude_docs: |\n  draft.md\n  private/*\n  **/secret-*.md\n"
 	path := writeTempConfig(t, content)
 	m, err := ParseSiteManifest(path)
 	if err != nil {
@@ -312,7 +356,7 @@ func TestParseSiteManifest_ExcludeDocs(t *testing.T) {
 }
 
 func TestParseSiteManifest_ExcludeDocsStripsComments(t *testing.T) {
-	content := "name: s\nexclude_docs: |\n  draft.md   # черновик\n  private/*\n"
+	content := "site_name: s\nexclude_docs: |\n  draft.md   # черновик\n  private/*\n"
 	path := writeTempConfig(t, content)
 	m, err := ParseSiteManifest(path)
 	if err != nil {
@@ -324,7 +368,7 @@ func TestParseSiteManifest_ExcludeDocsStripsComments(t *testing.T) {
 }
 
 func TestParseSiteManifest_ExcludeDocsList(t *testing.T) {
-	content := "name: s\nexclude_docs:\n  - draft.md\n  - private/*\n  - \"**/secret-*.md\"\n"
+	content := "site_name: s\nexclude_docs:\n  - draft.md\n  - private/*\n  - \"**/secret-*.md\"\n"
 	path := writeTempConfig(t, content)
 	m, err := ParseSiteManifest(path)
 	if err != nil {
@@ -342,7 +386,7 @@ func TestParseSiteManifest_ExcludeDocsList(t *testing.T) {
 }
 
 func TestParseSiteManifest_ExcludeDocsListStripsComments(t *testing.T) {
-	content := "name: s\nexclude_docs:\n  - draft.md   # черновик\n  - private/*\n"
+	content := "site_name: s\nexclude_docs:\n  - draft.md   # черновик\n  - private/*\n"
 	path := writeTempConfig(t, content)
 	m, err := ParseSiteManifest(path)
 	if err != nil {

@@ -1,0 +1,389 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# n8go-docs — GitHub Actions CI/CD
+#
+# Stages:   install → lint → test → build → docker → deploy → notify
+# Registry: GitHub Container Registry (ghcr.io)
+# Deploy:   Docker over SSH (pluggable — see deploy/providers/)
+#
+# Branch logic:
+#   main   → build + push + deploy to STAGE  (auto)
+#   v*     → build + push + deploy to PROD   (manual approval required)
+#   PR     → lint + test + build only         (no push, no deploy)
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags:     ['v*']
+  pull_request:
+    branches: [main]
+
+# Prevent concurrent deploys to the same environment
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION_FILE: pkg/go.mod
+  BINARY_NAME:     n8go-docs
+  BINARY_DIR:      pkg
+  IMAGE_NAME:      ghcr.io/${{ github.repository_owner }}/n8go-docs
+  HEALTHCHECK_URL: http://localhost:8080/health
+  HEALTHCHECK_RETRIES: 10
+  HEALTHCHECK_INTERVAL: 5
+
+# ─── PERMISSIONS ─────────────────────────────────────────────────────────────
+permissions:
+  contents: read
+  packages: write   # ghcr.io push
+
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STAGE 1: LINT
+# ══════════════════════════════════════════════════════════════════════════════
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.BINARY_DIR }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.GO_VERSION_FILE }}
+          cache: true
+          cache-dependency-path: pkg/go.sum
+
+      # Restore build cache separately (speeds up lint on large repos)
+      - name: Restore Go build cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: go-build-${{ runner.os }}-${{ hashFiles('pkg/go.sum') }}
+          restore-keys: go-build-${{ runner.os }}-
+
+      - name: gofmt
+        run: |
+          UNFORMATTED=$(gofmt -l .)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "::error::The following files are not formatted:"
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: ${{ env.BINARY_DIR }}
+          args: --timeout=5m
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STAGE 2: TEST
+# ══════════════════════════════════════════════════════════════════════════════
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint
+    defaults:
+      run:
+        working-directory: ${{ env.BINARY_DIR }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.GO_VERSION_FILE }}
+          cache: true
+          cache-dependency-path: pkg/go.sum
+
+      - name: Restore Go build cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: go-build-${{ runner.os }}-${{ hashFiles('pkg/go.sum') }}
+          restore-keys: go-build-${{ runner.os }}-
+
+      - name: Run tests with race detector
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Generate coverage report (HTML)
+        run: go tool cover -html=coverage.out -o coverage.html
+
+      - name: Print coverage summary
+        run: go tool cover -func=coverage.out | tail -1
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            ${{ env.BINARY_DIR }}/coverage.out
+            ${{ env.BINARY_DIR }}/coverage.html
+          retention-days: 14
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STAGE 3: BUILD
+# ══════════════════════════════════════════════════════════════════════════════
+  build:
+    name: Build binary
+    runs-on: ubuntu-latest
+    needs: test
+    defaults:
+      run:
+        working-directory: ${{ env.BINARY_DIR }}
+
+    outputs:
+      version:    ${{ steps.meta.outputs.version }}
+      commit:     ${{ steps.meta.outputs.commit }}
+      build_time: ${{ steps.meta.outputs.build_time }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.GO_VERSION_FILE }}
+          cache: true
+          cache-dependency-path: pkg/go.sum
+
+      - name: Restore Go build cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: go-build-${{ runner.os }}-${{ hashFiles('pkg/go.sum') }}
+          restore-keys: go-build-${{ runner.os }}-
+
+      - name: Resolve build metadata
+        id: meta
+        run: |
+          VERSION="${{ github.ref_type == 'tag' && github.ref_name || format('0.0.0-{0}', github.sha) }}"
+          COMMIT="${{ github.sha }}"
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "version=$VERSION"    >> "$GITHUB_OUTPUT"
+          echo "commit=$COMMIT"      >> "$GITHUB_OUTPUT"
+          echo "build_time=$BUILD_TIME" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          go build \
+            -trimpath \
+            -ldflags="-s -w \
+              -X n8go-docs/core.ProgramVersion=${{ steps.meta.outputs.version }} \
+              -X main.commit=${{ steps.meta.outputs.commit }} \
+              -X main.buildTime=${{ steps.meta.outputs.build_time }}" \
+            -o ../dist/${{ env.BINARY_NAME }} \
+            .
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-linux-amd64
+          path: dist/${{ env.BINARY_NAME }}
+          retention-days: 7
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STAGE 4: DOCKER
+# ══════════════════════════════════════════════════════════════════════════════
+  docker:
+    name: Docker build & push
+    runs-on: ubuntu-latest
+    needs: build
+    # No push on PRs
+    if: github.event_name != 'pull_request'
+
+    outputs:
+      image_tag:    ${{ steps.tags.outputs.primary }}
+      image_digest: ${{ steps.push.outputs.digest }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-linux-amd64
+          path: dist/
+
+      - name: Set executable bit
+        run: chmod +x dist/${{ env.BINARY_NAME }}
+
+      # ── Image tag strategy ──────────────────────────────────────────────
+      # PR:            (skipped entirely)
+      # main push:     ghcr.io/owner/app:latest, :sha-<short>
+      # semver tag:    ghcr.io/owner/app:v1.2.3, :1.2.3, :1.2, :1, :latest
+      - name: Compute image tags
+        id: tags
+        run: |
+          SHORT_SHA="${GITHUB_SHA::8}"
+          BASE="${{ env.IMAGE_NAME }}"
+
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"                 # v1.2.3
+            SEMVER="${TAG#v}"                            # 1.2.3
+            MINOR="${SEMVER%.*}"                         # 1.2
+            MAJOR="${MINOR%.*}"                          # 1
+            TAGS="${BASE}:${TAG},${BASE}:${SEMVER},${BASE}:${MINOR},${BASE}:${MAJOR},${BASE}:latest"
+            PRIMARY="${BASE}:${TAG}"
+          else
+            TAGS="${BASE}:latest,${BASE}:sha-${SHORT_SHA}"
+            PRIMARY="${BASE}:sha-${SHORT_SHA}"
+          fi
+
+          echo "tags=$TAGS"       >> "$GITHUB_OUTPUT"
+          echo "primary=$PRIMARY" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          # GITHUB_TOKEN is automatically provided — no manual secret needed
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          # Layer cache: reuse layers from the last push to the same ref
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
+          cache-to:   type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
+          build-args: |
+            BINARY_NAME=${{ env.BINARY_NAME }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.build.outputs.version }}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STAGE 5a: DEPLOY — STAGE environment (main branch)
+# ══════════════════════════════════════════════════════════════════════════════
+  deploy-stage:
+    name: Deploy → stage
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: stage
+      url: https://stage.example.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via provider
+        uses: ./.github/actions/deploy
+        with:
+          provider:    docker-ssh
+          environment: stage
+          image:       ${{ needs.docker.outputs.image_tag }}
+          ssh_host:    ${{ secrets.STAGE_SSH_HOST }}
+          ssh_user:    ${{ secrets.STAGE_SSH_USER }}
+          ssh_port:    ${{ secrets.STAGE_SSH_PORT }}
+          ssh_key:     ${{ secrets.STAGE_SSH_PRIVATE_KEY }}
+          registry_user:     ${{ github.actor }}
+          registry_password: ${{ secrets.GITHUB_TOKEN }}
+          registry_server:   ghcr.io
+          compose_file:      docker-compose.stage.yml
+          healthcheck_url:   ${{ env.HEALTHCHECK_URL }}
+
+      - name: Notify on success
+        if: success()
+        uses: ./.github/actions/notify
+        with:
+          status:      success
+          environment: stage
+          provider:    docker-ssh
+          image:       ${{ needs.docker.outputs.image_tag }}
+          telegram_token:   ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify
+        with:
+          status:      failure
+          environment: stage
+          provider:    docker-ssh
+          image:       ${{ needs.docker.outputs.image_tag }}
+          telegram_token:   ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STAGE 5b: DEPLOY — PROD environment (semver tag)
+# Manual approval is enforced via GitHub Environment protection rules.
+# ══════════════════════════════════════════════════════════════════════════════
+  deploy-prod:
+    name: Deploy → prod
+    runs-on: ubuntu-latest
+    needs: docker
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
+    environment:
+      name: prod
+      url: https://example.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via provider
+        uses: ./.github/actions/deploy
+        with:
+          provider:    docker-ssh
+          environment: prod
+          image:       ${{ needs.docker.outputs.image_tag }}
+          ssh_host:    ${{ secrets.PROD_SSH_HOST }}
+          ssh_user:    ${{ secrets.PROD_SSH_USER }}
+          ssh_port:    ${{ secrets.PROD_SSH_PORT }}
+          ssh_key:     ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          registry_user:     ${{ github.actor }}
+          registry_password: ${{ secrets.GITHUB_TOKEN }}
+          registry_server:   ghcr.io
+          compose_file:      docker-compose.prod.yml
+          healthcheck_url:   ${{ env.HEALTHCHECK_URL }}
+
+      - name: Notify on success
+        if: success()
+        uses: ./.github/actions/notify
+        with:
+          status:      success
+          environment: prod
+          provider:    docker-ssh
+          image:       ${{ needs.docker.outputs.image_tag }}
+          telegram_token:   ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify
+        with:
+          status:      failure
+          environment: prod
+          provider:    docker-ssh
+          image:       ${{ needs.docker.outputs.image_tag }}
+          telegram_token:   ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}

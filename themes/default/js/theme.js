@@ -123,7 +123,7 @@
         }
     }
 
-    function navigateTo(pathname) {
+    function navigateTo(pathname, urlForHistory, shouldPushState) {
         fetch(pathname)
             .then(function (response) { return response.text(); })
             .then(function (html) {
@@ -131,6 +131,11 @@
                 var doc = parser.parseFromString(html, 'text/html');
 
                 document.title = doc.title;
+                var newFavicon = doc.querySelector('link[rel~="icon"]');
+                var currentFavicon = document.querySelector('link[rel~="icon"]');
+                if (newFavicon && currentFavicon) {
+                    currentFavicon.setAttribute('href', newFavicon.getAttribute('href'));
+                }
 
                 var newContent = doc.getElementById('main-content');
                 if (newContent) mainContent.innerHTML = newContent.innerHTML;
@@ -143,10 +148,14 @@
                 var newToc = doc.getElementById('toc');
                 if (toc && newToc) toc.innerHTML = newToc.innerHTML;
 
+                if (shouldPushState && urlForHistory) {
+                    window.history.pushState(null, null, urlForHistory);
+                }
+
                 initMermaid();
             })
             .catch(function () {
-                window.location.href = pathname;
+                window.location.href = urlForHistory || pathname;
             });
     }
 
@@ -158,30 +167,40 @@
         if (!rawHref || rawHref.startsWith('http') || rawHref.startsWith('#') || rawHref.startsWith('mailto:')) return;
         e.preventDefault();
         var resolved = new URL(rawHref, window.location.href);
-        window.history.pushState(null, null, resolved.href);
-        navigateTo(resolved.pathname);
+        navigateTo(resolved.pathname, resolved.href, true);
     });
 
     window.addEventListener('popstate', function () {
-        navigateTo(window.location.pathname);
+        navigateTo(window.location.pathname, window.location.href, false);
     });
 
     initMermaid();
     initMermaidLightbox();
 
-    var toggleBtn = document.getElementById('toggle_btn');
-
     function setTheme(theme) {
+        var toggleBtn = document.getElementById('toggle_btn');
         if (theme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
-            toggleBtn.setAttribute('aria-label', 'Switch to light theme');
+            if (toggleBtn) {
+                toggleBtn.setAttribute('aria-label', 'Switch to light theme');
+            }
         } else {
             document.documentElement.removeAttribute('data-theme');
-            toggleBtn.setAttribute('aria-label', 'Switch to dark theme');
+            if (toggleBtn) {
+                toggleBtn.setAttribute('aria-label', 'Switch to dark theme');
+            }
         }
     }
+    if (localStorage.getItem('theme') === 'dark') {
+        setTheme('dark');
+    } else {
+        setTheme('light');
+    }
 
-    toggleBtn.onclick = function () {
+    // Use delegation so the toggle still works after nav HTML is replaced.
+    document.addEventListener('click', function (e) {
+        var toggleBtn = e.target.closest('#toggle_btn');
+        if (!toggleBtn) return;
         if (document.documentElement.getAttribute('data-theme') === 'dark') {
             setTheme('light');
             localStorage.setItem('theme', 'light');
@@ -190,10 +209,5 @@
             localStorage.setItem('theme', 'dark');
         }
         renderMermaid();
-    };
-    if (localStorage.getItem('theme') === 'dark') {
-        setTheme('dark');
-    } else {
-        setTheme('light');
-    }
+    });
 })();

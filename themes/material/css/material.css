@@ -26,6 +26,7 @@
     --md-default-bg-color--light: rgba(255,255,255,.7);
     --md-default-bg-color--lighter: rgba(255,255,255,.3);
     --md-default-bg-color--lightest: rgba(255,255,255,.12);
+    --md-footer-bg-color--dark:    rgba(0,0,0,.3);
 
     --md-code-fg-color:           #37474f;
     --md-code-bg-color:           #f5f5f5;
@@ -71,6 +72,7 @@
     --md-default-bg-color--light: hsla(var(--md-hue),15%,21%,.7);
     --md-default-bg-color--lighter: hsla(var(--md-hue),15%,21%,.3);
     --md-default-bg-color--lightest: hsla(var(--md-hue),15%,21%,.12);
+    --md-footer-bg-color--dark:    rgba(0,0,0,.3);
 
     --md-code-fg-color:           hsla(0,0%,100%,.87);
     --md-code-bg-color:           hsla(var(--md-hue),15%,15%,1);
@@ -209,12 +211,40 @@ body {
 }
 
 /* Light/dark icons */
-.md-icon--sun,
-.md-icon--moon {
+.theme-icon {
+    display: block;
+    width: 1rem;
+    height: 1rem;
+}
+
+#light-icon {
     display: none;
 }
-[data-md-color-scheme="default"] .md-icon--sun { display: block; }
-[data-md-color-scheme="slate"] .md-icon--moon { display: block; }
+
+[data-md-color-scheme="slate"] #light-icon {
+    display: block;
+}
+
+[data-md-color-scheme="slate"] #dark-icon {
+    display: none;
+}
+
+.theme-icon path,
+.theme-icon polygon,
+.theme-icon rect {
+    fill: currentColor;
+}
+
+[data-md-color-scheme="slate"] .md-header,
+[data-md-color-scheme="slate"] .md-header__button.md-icon,
+[data-md-color-scheme="slate"] .md-header__title,
+[data-md-color-scheme="slate"] .md-tabs__item--active .md-tabs__link {
+    color: #fff;
+}
+
+[data-md-color-scheme="slate"] .md-header {
+    background-color: hsla(var(--md-hue),15%,9%,1);
+}
 
 /* --------------------------------------------------------------------------
    Navigation tabs (top-level nav in header)
@@ -225,6 +255,10 @@ body {
     overflow: auto;
     scrollbar-width: none;
     width: 100%;
+}
+
+[data-md-color-scheme="slate"] .md-tabs {
+    background-color: hsla(var(--md-hue),15%,15%,1);
 }
 
 .md-tabs::-webkit-scrollbar {
@@ -651,6 +685,7 @@ body {
 }
 
 .md-typeset td {
+    background-color: var(--md-default-fg-color--lightest);
     border: .05rem solid var(--md-typeset-table-color);
     padding: .6em 1em;
 }
@@ -820,7 +855,7 @@ mark {
 }
 
 .md-footer-meta {
-    background-color: rgba(0,0,0,.3);
+    background-color: var(--md-footer-bg-color--dark);
 }
 
 .md-footer-meta__inner {

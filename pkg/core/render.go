@@ -3,16 +3,10 @@ package core
 import (
 	"os"
 	"path/filepath"
-	"strings"
-	"text/template"
 	"time"
 
-	"n8go-docs/diagnostics"
 	"n8go-docs/manifest"
 	"n8go-docs/utils"
-
-	"github.com/PuerkitoBio/goquery"
-	"github.com/microcosm-cc/bluemonday"
 )
 
 func findDirForPage(page pageInfo, siteManifest manifest.SiteManifest) string {
@@ -59,69 +53,25 @@ func createPageContext(mdFile string, rootPath string, siteManifest manifest.Sit
 	}, nil
 }
 
-func openOutputFileForPage(ctx *pageContext, siteManifest manifest.SiteManifest) (*os.File, error) {
+// writePageHTML writes the provided HTML string to the output directory for ctx.
+func writePageHTML(ctx *pageContext, siteManifest manifest.SiteManifest, html string) error {
 	outPath := filepath.Join(siteManifest.OutputPath, ctx.Url)
 	if err := os.MkdirAll(outPath, os.ModePerm); err != nil {
-		return nil, err
+		return err
 	}
-	return os.Create(filepath.Join(outPath, "index.html"))
+	return os.WriteFile(filepath.Join(outPath, "index.html"), []byte(html), 0o644)
 }
 
-func generateThemedHtmlForPage(ctx *pageContext, siteManifest manifest.SiteManifest, themeTemplate *template.Template, searchIndex *SearchIndex) {
-	mdFile := ctx.Page.FileName
-
-	writer, err := openOutputFileForPage(ctx, siteManifest)
-	if err != nil {
-		diagnostics.PrintError(err, "failed to open output file for "+mdFile)
-		return
-	}
-
-	var htmlBuf strings.Builder
-	if err = themeTemplate.ExecuteTemplate(&htmlBuf, RootTemplateName, ctx); err != nil {
-		diagnostics.PrintError(err, "failed to execute template for "+mdFile)
-		return
-	}
-
-	if err = processHtml(strings.NewReader(htmlBuf.String()), writer, ctx); err != nil {
-		diagnostics.PrintError(err, "failed to run HTML postproc for "+mdFile)
-		return
-	}
-
-	if siteManifest.DefaultSearch && searchIndex != nil {
-		entry, ok := indexPageContent(ctx, siteManifest, htmlBuf.String())
-		if ok {
-			searchIndex.Add(entry)
-		}
-	}
-
-	if err = writer.Close(); err != nil {
-		diagnostics.PrintError(err, "failed to close output file for "+mdFile)
-	}
+// readFileBytes reads a file from disk.
+func readFileBytes(filePath string) ([]byte, error) {
+	return os.ReadFile(filePath)
 }
 
-func indexPageContent(ctx *pageContext, siteManifest manifest.SiteManifest, rawHtml string) (SearchIndexEntry, bool) {
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rawHtml))
-	if err != nil {
-		diagnostics.PrintError(err, "failed to parse HTML for search indexing: "+ctx.Page.FileName)
-		return SearchIndexEntry{}, false
+// writeFileBytes writes content to a file, creating directories as needed.
+func writeFileBytes(filePath string, content []byte) error {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
+		return err
 	}
-
-	content, err := doc.Find(".main-content").Html()
-	if err != nil {
-		diagnostics.PrintError(err, "failed to find main content for "+ctx.Page.FileName)
-		return SearchIndexEntry{}, false
-	}
-
-	content = bluemonday.StrictPolicy().Sanitize(content)
-	content = strings.Join(strings.Fields(content), " ")
-
-	if lim := siteManifest.SearchContentLimit; lim > 0 && len([]rune(content)) > lim {
-		content = string([]rune(content)[:lim])
-	}
-
-	return SearchIndexEntry{
-		Title:   ctx.Page.Title,
-		Url:     ctx.Url,
-		Content: content,
-	}, true
+	return os.WriteFile(filePath, content, 0o644)
 }
+

@@ -2,150 +2,199 @@
 
 Themes define the HTML structure, static assets, navigation rendering, and page chrome for an n8go-docs site.
 
-> Note: n8go-docs renders themes with the Go-native Jinja2-compatible engine Jinja2go, currently backed by `github.com/nikolalohinski/gonja/v2`. Legacy Go `text/template` syntax is not supported in theme files.
+> **Engine:** n8go-docs renders themes with the Go-native Jinja2-compatible engine backed by [`gonja/v2`](https://github.com/nikolalohinski/gonja). Legacy Go `text/template` syntax is **not** supported and will cause a build error.
 
-## Minimal Theme Directory
-
-A theme directory must follow this minimum layout:
+## Theme Directory Layout
 
 ```text
 my_theme/
-├── main.html        # Required: main template
-├── base.html        # Optional: base template
+├── theme.yaml       # Required: theme metadata and highlighting config
+├── main.html        # Required: root Jinja2 template
+├── body.html        # Optional: included template for page body
+├── nav.html         # Optional: included template for navigation
 ├── css/
-│   └── style.css
+│   └── style.css    # Copied to output/assets/css/
 ├── js/
-│   └── script.js
-├── img/
-│   └── logo.png
-└── theme.yaml       # Optional: theme config
+│   └── script.js    # Copied to output/assets/js/
+└── img/
+    └── logo.svg     # Copied to output/assets/img/
 ```
 
-`main.html` is the only required template file. Static files must live inside theme subdirectories such as `css/`, `js/`, and `img/`.
+`main.html` and `theme.yaml` are the only required files. During build, theme subdirectories are emitted to:
 
-During build, these theme directories are emitted to:
+| Source | Output |
+|--------|--------|
+| `css/*` | `<site_dir>/assets/css/*` |
+| `js/*` | `<site_dir>/assets/js/*` |
+| `img/*` | `<site_dir>/assets/img/*` |
 
-- `css/*` -> `/assets/css/*`
-- `js/*` -> `/assets/js/*`
-- `img/*` -> `/assets/img/*`
+The theme directory is resolved from `themes/<theme_id>/` next to the binary. Override the root with `THEME_DIR`:
 
-## Required Template: main.html
-
-`main.html` must contain the base HTML document structure and render the current page content.
-
-Target Jinja2-compatible example:
-
-```jinja2
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% if page_title %}{{ page_title }} - {% endif %}{{ config.site_name }}</title>
-    {% for path in config.extra_css %}
-      <link href="{{ path|url }}" rel="stylesheet">
-    {% endfor %}
-  </head>
-  <body>
-    <nav>
-      <a href="{{ nav.homepage.url|url }}">{{ config.site_name }}</a>
-    </nav>
-
-    <main>
-      {{ page.content }}
-    </main>
-
-    {% for path in config.extra_javascript %}
-      <script src="{{ path|url }}"></script>
-    {% endfor %}
-  </body>
-</html>
+```bash
+THEME_DIR=/path/to/themes n8go-docs build
 ```
 
-The builder must fail with a clear error if `main.html` is missing.
+## theme.yaml
 
-## Template Variables
-
-Templates must have access to these required variables:
-
-| Variable | Type | Description |
-| --- | --- | --- |
-| `config` | `n8go-docs.config.Config` | Full configuration from `n8go-docs.yml` or `n8go-docs.yaml`. |
-| `nav` | `n8go-docs.structure.nav.Navigation` | Navigation object for the site. |
-| `page` | `n8go-docs.structure.pages.Page` | Current page object. |
-| `base_url` | `str` | Base URL of the generated site. |
-| `homepage_url` | `str` | URL of the homepage. |
-
-The renderer maps the internal Go page context to the Jinja2-style names above.
-
-## Filters And Functions
-
-The theme engine must support these filters:
-
-```jinja2
-<!-- url: normalizes paths for nested pages -->
-<a href="{{ 'page.md'|url }}">Link</a>
-
-<!-- tojson: serializes values as JSON -->
-<script>
-  var config = {{ config|tojson }};
-</script>
-```
-
-The `url` filter is required for correct links in subdirectories. Themes must not hard-code root-relative or page-relative paths when the `url` filter can be used.
-
-## Optional Theme Config
-
-`theme.yaml` is optional. When present, it may define theme metadata and rendering defaults such as:
+`theme.yaml` is required. It provides metadata and controls syntax highlighting.
 
 ```yaml
 theme:
   name: My Theme
   version: 1.0.0
-  author: You
+  description: A clean documentation theme
+  author: Your Name
+  repository: https://github.com/you/my-theme
   license: MIT
 
 highlighting:
-  style: bw
+  style: github        # Any Chroma style name
   line_numbers: false
 ```
 
-## Default Jinja2 Extensions
+| Field | Required | Description |
+|-------|:--------:|-------------|
+| `theme.name` | ✓ | Theme display name |
+| `theme.version` | ✓ | Semantic version |
+| `theme.description` | — | Short description |
+| `theme.author` | — | Author name |
+| `theme.repository` | — | Repository URL |
+| `theme.license` | — | SPDX license identifier |
+| `highlighting.style` | ✓ | [Chroma style](https://xyproto.github.io/splash/docs/) (e.g. `github`, `monokai`, `xcode-dark`) |
+| `highlighting.line_numbers` | — | Show line numbers in code blocks. Default: `false` |
 
-The Jinja2-compatible engine must enable these extensions by default:
+## main.html
 
-| Extension | Purpose |
-| --- | --- |
-| `jinja2.ext.do` | Enables `{% do ... %}`. |
-| `jinja2.ext.loopcontrols` | Enables `break` and `continue` in loops. |
+`main.html` must contain the complete HTML document and render the current page content via `{{ page.content }}`. The build fails with a clear error if the file is missing or does not render `page.content`.
 
-If native Jinja2 is unavailable, n8go-docs must provide an internal Go implementation or compatibility layer that supports the required variables, filters, functions, and extensions.
-
-## Static Files
-
-All CSS, JavaScript, and image files must be stored under theme subdirectories and referenced through the `url` filter:
+Minimal working example:
 
 ```jinja2
-<link href="{{ 'assets/css/style.css'|url }}" rel="stylesheet">
-<script src="{{ 'assets/js/script.js'|url }}"></script>
-<img src="{{ 'assets/img/logo.png'|url }}" alt="Logo">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if page_title %}{{ page_title }} — {% endif %}{{ config.site_name }}</title>
+  {% for tag in config.head_tags %}{{ tag }}{% endfor %}
+  <link href="{{ 'css/style.css'|url }}" rel="stylesheet">
+  {% for path in config.extra_css %}
+    <link href="{{ path|url }}" rel="stylesheet">
+  {% endfor %}
+</head>
+<body>
+  <nav>
+    {% for item in nav %}
+      <a href="{{ item.url|url }}" class="{% if item.active %}active{% endif %}">
+        {{ item.title }}
+      </a>
+    {% endfor %}
+  </nav>
+
+  <main class="main-content">
+    {{ page.content }}
+  </main>
+
+  <script src="{{ 'js/script.js'|url }}"></script>
+  {% for path in config.extra_javascript %}
+    <script src="{{ path|url }}"></script>
+  {% endfor %}
+</body>
+</html>
 ```
 
-This prevents broken assets on nested pages and avoids hard-coded paths.
+> **Important:** the `main-content` CSS class on the `<main>` element is required for the search plugin to extract page text correctly.
 
-## Navigation
+## Template Variables
 
-Themes must handle nested navigation correctly and preserve active state:
+All variables are available inside every template file included from `main.html`.
+
+### Top-level
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `config` | object | All fields from `n8go-docs.yaml` (see below) |
+| `page` | object | Current page data (see below) |
+| `nav` | list | Navigation tree (see below) |
+| `base_url` | string | `site_url` when set; otherwise the page's `root_path` |
+| `root_path` | string | Relative path prefix to the site root (e.g. `../../`) |
+| `site_url` | string | Value of `site_url` from config, or empty string |
+| `homepage_url` | string | Absolute or relative URL of the homepage |
+| `page_title` | string | Current page title (same as `page.title`) |
+| `url` | string | Output directory path of the current page |
+| `input_dir` | string | Absolute path to the directory of the source `.md` file |
+| `generator.name` | string | `n8go-docs` |
+| `generator.version` | string | Current application version |
+| `now` | string | Build timestamp in `YYYY-MM-DD HH:MM:SS.mmm` format |
+| `site` | object | Alias for `config` |
+
+### config object
+
+Mirrors `n8go-docs.yaml` directly:
+
+| Key | Description |
+|-----|-------------|
+| `config.site_name` | Site title |
+| `config.site_url` | Public base URL |
+| `config.site_description` | Site description |
+| `config.dev_addr` | Development server address |
+| `config.use_directory_urls` | Boolean |
+| `config.theme` | Theme ID |
+| `config.docs_dir` | Resolved absolute path to docs directory |
+| `config.site_dir` | Resolved absolute path to output directory |
+| `config.default_search` | Boolean |
+| `config.search_engine` | `flexsearch` or `fuse` |
+| `config.search_content_limit` | Integer |
+| `config.head_tags` | List of raw HTML strings |
+| `config.custom_font` | Font family name |
+| `config.logo` | Logo path |
+| `config.strip_md_extension` | Boolean |
+| `config.extra_css` | List of CSS file paths |
+| `config.extra_javascript` | List of JS file paths |
+| `config.exclude_docs` | List of glob patterns |
+
+### page object
+
+| Key | Description |
+|-----|-------------|
+| `page.title` | Page title extracted from the first `# H1` heading |
+| `page.content` | Rendered page body as sanitized HTML (safe to output unescaped) |
+| `page.body` | Alias for `page.content` |
+| `page.toc` | Table of contents — list of `{id, name, title, level}` for H1–H3 headings |
+| `page.file_path` | Absolute path to the source `.md` file |
+| `page.file_name` | Base name of the source file without extension |
+| `page.url` | Output directory path relative to the site root |
+
+### nav items
+
+Each item in `nav` (and recursively in `item.children`) has:
+
+| Key | Description |
+|-----|-------------|
+| `item.title` | Display name |
+| `item.name` | Alias for `title` |
+| `item.url` | Output URL of the page |
+| `item.active` | `true` when this item (or a descendant) is the current page |
+| `item.children` | List of child nav items (empty list for leaf pages) |
+
+## Filters
+
+| Filter | Description |
+|--------|-------------|
+| `\|url` | Resolves a path relative to the site root, respecting `root_path` and `site_url`. **Must** be used for all asset and page URLs. |
+| `\|urlquery` | URL-encodes a string (equivalent to `url.QueryEscape`). |
+
+### Navigation with active state
 
 ```jinja2
-<ul class="nav">
-  {% for nav_item in nav %}
-    <li class="{% if nav_item.active %}active{% endif %}">
-      <a href="{{ nav_item.url|url }}">{{ nav_item.title }}</a>
-      {% if nav_item.children %}
-        <ul class="subnav">
-          {% for child in nav_item.children %}
-            <li>
+<ul>
+  {% for item in nav %}
+    <li class="{% if item.active %}active{% endif %}">
+      <a href="{{ item.url|url }}">{{ item.title }}</a>
+      {% if item.children %}
+        <ul>
+          {% for child in item.children %}
+            <li class="{% if child.active %}active{% endif %}">
               <a href="{{ child.url|url }}">{{ child.title }}</a>
             </li>
           {% endfor %}
@@ -156,26 +205,41 @@ Themes must handle nested navigation correctly and preserve active state:
 </ul>
 ```
 
-## MkDocs Compatibility
+### Table of contents
 
-n8go-docs themes should be compatible with the MkDocs/Jinja2 theme model where practical. The key compatibility requirements are:
+```jinja2
+{% if page.toc %}
+<nav class="toc">
+  {% for entry in page.toc %}
+    <a href="#{{ entry.id }}" data-level="{{ entry.level }}">{{ entry.name }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+```
 
-- `main.html` is the minimum required file.
-- `page.content` must render the current page body as sanitized HTML.
-- The `url` filter must normalize links and static asset paths for nested pages.
-- `config` and `nav` must be available for site settings and menus.
-- Static assets must be linked with `url`.
-- Themes must use `base_url` instead of hard-coded root paths.
+## Control Structures
 
-If a theme does not satisfy these requirements, the build must fail with a clear, actionable error message.
+In addition to standard Jinja2, the engine supports:
 
-## Implementation Plan
+| Syntax | Description |
+|--------|-------------|
+| `{% do expression %}` | Evaluate an expression without producing output (e.g. `{% do list.append(item) %}`). |
+| `{% break %}` | Break out of a `{% for %}` loop. |
+| `{% continue %}` | Skip to the next iteration of a `{% for %}` loop. |
+| `{% for k, v in dict %}` | Iterate over key-value pairs. |
 
-1. Done: documented and froze the target theme contract.
-2. Done: added Jinja2go rendering with a clear build error when `main.html` is missing or invalid.
-3. Done: added a compatibility context that maps internal Go data to `config`, `nav`, `page`, `base_url`, and `homepage_url`.
-4. Done: implemented `url` support and use the engine-provided `tojson` support.
-5. Done: migrated bundled themes to Jinja2-compatible syntax.
-6. Done: added tests for missing `main.html`, bundled theme rendering, nested static URLs, `page.content`, nav nesting, and `tojson`.
-7. Done: added stricter validation for legacy Go-template syntax, missing `page.content`, and hard-coded local static asset paths.
-8. Next: expand validation for more MkDocs-compatible constructs as themes start using them.
+## Build-time Validation
+
+n8go-docs validates every theme before rendering. The build fails if:
+
+- `main.html` is missing.
+- Any `.html` file uses Go `text/template` syntax (`{{.`, `{{ range`, `{{ if`).
+- Any `.html` file hard-codes local asset paths (e.g. `href="css/style.css"`) instead of using the `url` filter.
+- No template file renders `page.content`.
+
+## Bundled Themes
+
+| Theme ID | Description |
+|----------|-------------|
+| `default` | Clean, accessible theme with light/dark toggle and FlexSearch integration. |
+| `material` | Material Design-inspired theme with a collapsible sidebar. |

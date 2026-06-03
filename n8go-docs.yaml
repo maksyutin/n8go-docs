@@ -1,7 +1,16 @@
-name: n8go-docs
+site_name: N8Go-docs Documentation
+site_description: Documentation project for N8Go Docs
+#site_url: https://mycompany.com/docs/
+
 docs_dir: docs
 site_dir: site
-theme: default
+theme: material
+
+# For separate local development
+#dev_addr: 127.0.0.1:8000
+
+# Use directories instead of .html
+use_directory_urls: false
 
 search_engine: flexsearch
 search_content_limit: 500
@@ -9,6 +18,9 @@ strip_md_extension: true
 
 nav:
   - Introduction: index.md
-  - Components: components.md
   - Configuration: config.md
   - Themeing: themeing.md
+  - Plugins: plugins.md
+  - Components: components.md
+plugins:
+  - social

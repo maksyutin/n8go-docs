@@ -11,51 +11,55 @@
     </style>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% if config.site_description %}
+    <meta name="description" content="{{ config.site_description }}">
+    {% endif %}
+    {% if site_url %}
+    <link rel="canonical" href="{{ page.url|url }}">
+    {% endif %}
 
-    <title>{{ .Page.Title }} - {{ .Site.Name }}</title>
-    <link rel="shortcut icon" href="img/book.svg">
+    <title>{{ page.title }} - {{ config.site_name }}</title>
+    <link rel="shortcut icon" href="{{ 'assets/img/logo.svg'|url }}">
 
     <!-- Stylesheets and scripts -->
-    {{ if .Site.DefaultSearch }}
+    {% if config.default_search %}
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/gh/nextapps-de/flexsearch@0.7.31/dist/flexsearch.bundle.js"></script>
-    <script src="js/search.js" defer></script>
-    {{ end }}
-    {{ if .Site.HeadTags }}
-    {{ range .Site.HeadTags }}
-    {{ . }}
-    {{ end }}
-    {{ end }}
-    {{ range .Site.ExtraCss }}
-    <link rel="stylesheet" href="{{ . }}">
-    {{ end }}
-    {{ range .Site.ExtraJavascript }}
-    <script src="{{ . }}" defer></script>
-    {{ end }}
-    {{ if .Site.CustomFont }}
+    <script src="{{ 'assets/js/search.js'|url }}" defer></script>
+    {% endif %}
+    {% for tag in config.head_tags %}
+    {{ tag|safe }}
+    {% endfor %}
+    {% for path in config.extra_css %}
+    <link rel="stylesheet" href="{{ path|url }}">
+    {% endfor %}
+    {% if config.custom_font %}
     <style>
         :root {
-            --custom-font: '{{ .Site.CustomFont }}' !important;
+            --custom-font: '{{ config.custom_font }}' !important;
         }
     </style>
-    {{ end }}
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
-    <link rel="stylesheet" href="css/theme.css">
-    <script src="js/components/alert.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" defer></script>
-    <script src="js/theme.js" charset="utf-8" defer></script>
+    {% endif %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ 'assets/css/theme.css'|url }}">
 </head>
 
 <body>
-    {{ template "body.html" . }}
+    {% include "body.html" %}
+    <script src="{{ 'assets/js/components/alert.js'|url }}" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" defer></script>
+    <script src="{{ 'assets/js/theme.js'|url }}" charset="utf-8" defer></script>
+    {% for path in config.extra_javascript %}
+    <script src="{{ path|url }}" defer></script>
+    {% endfor %}
 </body>
 
 <!--
-    Generator: {{ .Generator.Name }}
-    Version:   {{ .Generator.Version }}
-    Built on:  {{ .Now }}
-    Source:    {{ .Page.FilePath }}
+    Generator: {{ generator.name }}
+    Version:   {{ generator.version }}
+    Built on:  {{ now }}
+    Source:    {{ page.file_path }}
 -->
 
 </html>

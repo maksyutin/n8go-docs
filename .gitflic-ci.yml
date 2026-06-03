@@ -1,0 +1,301 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# n8go-docs — GitFlic CI/CD
+#
+# GitFlic использует собственный формат (pipeline YAML, не совместимый
+# с GitHub Actions). Основан на концепции stages + jobs + steps.
+#
+# Особенности GitFlic CI:
+#   - Нет нативного docker buildx — используем docker build + docker push
+#   - Registry: registry.gitflic.ru/<namespace>/<project>
+#   - Секреты: задаются в Settings → CI/CD → Variables
+#   - Manual approval: task.type: manual
+#   - SSH deploy: через shell-executor + ssh
+#   - Артефакты: artifacts.paths
+# ─────────────────────────────────────────────────────────────────────────────
+
+variables:
+  BINARY_NAME:     n8go-docs
+  BINARY_DIR:      pkg
+  GO_VERSION:      "1.25"
+  GOOS:            linux
+  GOARCH:          amd64
+  CGO_ENABLED:     "0"
+  IMAGE_BASE:      registry.gitflic.ru/$GITFLIC_PROJECT_NAMESPACE/$GITFLIC_PROJECT_NAME
+  HEALTHCHECK_URL: http://localhost:8080/health
+  HC_RETRIES:      "12"
+  HC_INTERVAL:     "5"
+
+# ── Cache configuration ───────────────────────────────────────────────────────
+cache:
+  key: go-modules-$GITFLIC_COMMIT_REF_SLUG
+  paths:
+    - .go/pkg/mod
+    - .go/cache
+
+pipeline:
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STAGE: install
+# ═════════════════════════════════════════════════════════════════════════════
+  - stage: install
+    jobs:
+      - name: Download modules
+        image: golang:1.25-alpine
+        variables:
+          GOPATH:     "$CI_PROJECT_DIR/.go"
+          GOMODCACHE: "$CI_PROJECT_DIR/.go/pkg/mod"
+          GOCACHE:    "$CI_PROJECT_DIR/.go/cache"
+        steps:
+          - cd $BINARY_DIR
+          - go mod download
+          - go mod verify
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STAGE: lint
+# ═════════════════════════════════════════════════════════════════════════════
+  - stage: lint
+    jobs:
+      - name: gofmt
+        image: golang:1.25-alpine
+        variables:
+          GOPATH:     "$CI_PROJECT_DIR/.go"
+          GOMODCACHE: "$CI_PROJECT_DIR/.go/pkg/mod"
+          GOCACHE:    "$CI_PROJECT_DIR/.go/cache"
+        steps:
+          - cd $BINARY_DIR
+          - |
+            UNFORMATTED=$(gofmt -l .)
+            if [ -n "$UNFORMATTED" ]; then
+              echo "Unformatted: $UNFORMATTED"
+              exit 1
+            fi
+
+      - name: go vet
+        image: golang:1.25-alpine
+        variables:
+          GOPATH:     "$CI_PROJECT_DIR/.go"
+          GOMODCACHE: "$CI_PROJECT_DIR/.go/pkg/mod"
+          GOCACHE:    "$CI_PROJECT_DIR/.go/cache"
+        steps:
+          - cd $BINARY_DIR
+          - go vet ./...
+
+      - name: golangci-lint
+        image: golangci/golangci-lint:latest-alpine
+        variables:
+          GOPATH:     "$CI_PROJECT_DIR/.go"
+          GOMODCACHE: "$CI_PROJECT_DIR/.go/pkg/mod"
+          GOCACHE:    "$CI_PROJECT_DIR/.go/cache"
+        steps:
+          - cd $BINARY_DIR
+          - golangci-lint run --timeout=5m ./...
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STAGE: test
+# ═════════════════════════════════════════════════════════════════════════════
+  - stage: test
+    jobs:
+      - name: unit tests
+        image: golang:1.25-alpine
+        variables:
+          GOPATH:     "$CI_PROJECT_DIR/.go"
+          GOMODCACHE: "$CI_PROJECT_DIR/.go/pkg/mod"
+          GOCACHE:    "$CI_PROJECT_DIR/.go/cache"
+        steps:
+          - cd $BINARY_DIR
+          - go test -race -coverprofile=coverage.out -covermode=atomic ./...
+          - go tool cover -func=coverage.out | tail -1
+        artifacts:
+          paths:
+            - $BINARY_DIR/coverage.out
+          expire_in: 14d
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STAGE: build
+# ═════════════════════════════════════════════════════════════════════════════
+  - stage: build
+    jobs:
+      - name: build binary
+        image: golang:1.25-alpine
+        variables:
+          GOPATH:     "$CI_PROJECT_DIR/.go"
+          GOMODCACHE: "$CI_PROJECT_DIR/.go/pkg/mod"
+          GOCACHE:    "$CI_PROJECT_DIR/.go/cache"
+          CGO_ENABLED: "0"
+          GOOS:        linux
+          GOARCH:      amd64
+        steps:
+          - |
+            if [ -n "$GITFLIC_TAG" ]; then
+              VERSION="$GITFLIC_TAG"
+            else
+              VERSION="0.0.0-${GITFLIC_COMMIT_SHA:0:8}"
+            fi
+          - mkdir -p dist
+          - |
+            cd $BINARY_DIR
+            go build \
+              -trimpath \
+              -ldflags="-s -w \
+                -X n8go-docs/core.ProgramVersion=${VERSION} \
+                -X main.commit=${GITFLIC_COMMIT_SHA} \
+                -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              -o ../dist/${BINARY_NAME} \
+              .
+        artifacts:
+          paths:
+            - dist/$BINARY_NAME
+          expire_in: 1h
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STAGE: docker
+# ═════════════════════════════════════════════════════════════════════════════
+  - stage: docker
+    # Skip for merge requests
+    only:
+      - branches
+      - tags
+    except:
+      - merge_requests
+    jobs:
+      - name: build and push image
+        image: docker:26-dind
+        variables:
+          DOCKER_HOST:           tcp://docker:2375
+          DOCKER_TLS_CERTDIR:    ""
+        services:
+          - docker:26-dind
+        steps:
+          - docker login -u "$REGISTRY_USER" -p "$REGISTRY_TOKEN" registry.gitflic.ru
+          - |
+            SHORT_SHA="${GITFLIC_COMMIT_SHA:0:8}"
+            if [ -n "$GITFLIC_TAG" ]; then
+              TAG="$GITFLIC_TAG"
+              SEMVER="${TAG#v}"
+              PRIMARY="${IMAGE_BASE}:${TAG}"
+              EXTRA_TAGS="${IMAGE_BASE}:${SEMVER} ${IMAGE_BASE}:latest"
+            else
+              PRIMARY="${IMAGE_BASE}:sha-${SHORT_SHA}"
+              EXTRA_TAGS="${IMAGE_BASE}:latest"
+            fi
+          - docker build -t "$PRIMARY" --build-arg BINARY_NAME=${BINARY_NAME} .
+          - docker push "$PRIMARY"
+          - |
+            for extra_tag in $EXTRA_TAGS; do
+              docker tag "$PRIMARY" "$extra_tag"
+              docker push "$extra_tag"
+            done
+          - echo "PRIMARY_IMAGE=${PRIMARY}" > deploy.env
+        artifacts:
+          paths:
+            - deploy.env
+          expire_in: 1h
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STAGE: deploy
+# ═════════════════════════════════════════════════════════════════════════════
+  - stage: deploy
+    jobs:
+      - name: deploy stage
+        image: alpine:3.20
+        only:
+          - main
+        steps:
+          - apk add --no-cache openssh-client curl jq bash
+          - source deploy.env
+          - mkdir -p ~/.ssh
+          - echo "$STAGE_SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          - chmod 600 ~/.ssh/deploy_key
+          - ssh-keyscan -p "${STAGE_SSH_PORT:-22}" "$STAGE_SSH_HOST" >> ~/.ssh/known_hosts
+          - |
+            export SSH_HOST="$STAGE_SSH_HOST"
+            export SSH_USER="$STAGE_SSH_USER"
+            export SSH_PORT="${STAGE_SSH_PORT:-22}"
+            export REGISTRY="registry.gitflic.ru"
+            export REGISTRY_USER="$REGISTRY_USER"
+            export REGISTRY_PASS="$REGISTRY_TOKEN"
+            export IMAGE="$PRIMARY_IMAGE"
+            export COMPOSE_FILE="docker-compose.stage.yml"
+            export COMPOSE_DIR="/opt/app"
+            export SERVICE="app"
+            export HC_URL="$HEALTHCHECK_URL"
+            bash .gitlab/scripts/provider-docker-ssh.sh
+          - rm -f ~/.ssh/deploy_key
+
+      - name: deploy prod
+        image: alpine:3.20
+        type: manual          # ← Manual approval in GitFlic
+        only:
+          - tags
+        steps:
+          - apk add --no-cache openssh-client curl jq bash
+          - source deploy.env
+          - mkdir -p ~/.ssh
+          - echo "$PROD_SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          - chmod 600 ~/.ssh/deploy_key
+          - ssh-keyscan -p "${PROD_SSH_PORT:-22}" "$PROD_SSH_HOST" >> ~/.ssh/known_hosts
+          - |
+            export SSH_HOST="$PROD_SSH_HOST"
+            export SSH_USER="$PROD_SSH_USER"
+            export SSH_PORT="${PROD_SSH_PORT:-22}"
+            export REGISTRY="registry.gitflic.ru"
+            export REGISTRY_USER="$REGISTRY_USER"
+            export REGISTRY_PASS="$REGISTRY_TOKEN"
+            export IMAGE="$PRIMARY_IMAGE"
+            export COMPOSE_FILE="docker-compose.prod.yml"
+            export COMPOSE_DIR="/opt/app"
+            export SERVICE="app"
+            export HC_URL="$HEALTHCHECK_URL"
+            bash .gitlab/scripts/provider-docker-ssh.sh
+          - rm -f ~/.ssh/deploy_key
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STAGE: notify
+# ═════════════════════════════════════════════════════════════════════════════
+  - stage: notify
+    jobs:
+      - name: telegram on success
+        image: alpine:3.20
+        when: on_success
+        only:
+          - main
+          - tags
+        steps:
+          - apk add --no-cache curl jq
+          - source deploy.env || true
+          - |
+            bash .gitlab/scripts/notify-telegram.sh \
+              "success" \
+              "${CI_ENVIRONMENT_NAME:-unknown}" \
+              "docker-ssh" \
+              "${PRIMARY_IMAGE:-unknown}"
+        variables:
+          CI_PROJECT_PATH:     $GITFLIC_PROJECT_NAMESPACE/$GITFLIC_PROJECT_NAME
+          CI_COMMIT_REF_NAME:  $GITFLIC_COMMIT_REF_NAME
+          CI_COMMIT_SHORT_SHA: $GITFLIC_COMMIT_SHORT_SHA
+          CI_PROJECT_URL:      $GITFLIC_PROJECT_URL
+          CI_PIPELINE_ID:      $GITFLIC_PIPELINE_ID
+          GITLAB_USER_LOGIN:   $GITFLIC_USER_LOGIN
+
+      - name: telegram on failure
+        image: alpine:3.20
+        when: on_failure
+        only:
+          - main
+          - tags
+        steps:
+          - apk add --no-cache curl jq
+          - source deploy.env || true
+          - |
+            bash .gitlab/scripts/notify-telegram.sh \
+              "failure" \
+              "${CI_ENVIRONMENT_NAME:-unknown}" \
+              "docker-ssh" \
+              "${PRIMARY_IMAGE:-unknown}"
+        variables:
+          CI_PROJECT_PATH:     $GITFLIC_PROJECT_NAMESPACE/$GITFLIC_PROJECT_NAME
+          CI_COMMIT_REF_NAME:  $GITFLIC_COMMIT_REF_NAME
+          CI_COMMIT_SHORT_SHA: $GITFLIC_COMMIT_SHORT_SHA
+          CI_PROJECT_URL:      $GITFLIC_PROJECT_URL
+          CI_PIPELINE_ID:      $GITFLIC_PIPELINE_ID
+          GITLAB_USER_LOGIN:   $GITFLIC_USER_LOGIN

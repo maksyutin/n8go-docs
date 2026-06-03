@@ -1,4 +1,4 @@
-package core
+package core_test
 
 import (
 	"encoding/json"
@@ -7,7 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"n8go-docs/core"
 	"n8go-docs/manifest"
+	"n8go-docs/plugins/search"
 )
 
 func writeTestFile(t *testing.T, path string, content string) {
@@ -26,8 +28,8 @@ func makeTestTheme(t *testing.T, root string) string {
 	writeTestFile(t, filepath.Join(themeDir, "main.html"), `<!doctype html>
 <html>
 <body>
-<nav>{{range .Nav}}<a href="{{.Url}}" data-active="{{.Active}}">{{.Name}}</a>{{end}}</nav>
-<main class="main-content">{{.Page.Body}}</main>
+<nav>{% for nav_item in nav %}<a href="{{ nav_item.url|url }}" data-active="{{ nav_item.active }}">{{ nav_item.title }}</a>{% endfor %}</nav>
+<main class="main-content">{{ page.content }}</main>
 </body>
 </html>`)
 	writeTestFile(t, filepath.Join(themeDir, "css", "theme.css"), "body { color: #111; }\n")
@@ -56,7 +58,7 @@ func TestGenerateDocumentationBuildsPagesSearchIndexAndStaticFiles(t *testing.T)
 	writeTestFile(t, filepath.Join(inputDir, "asset.txt"), "copied from docs")
 
 	siteManifest := manifest.SiteManifest{
-		Name:          "Docs",
+		SiteName:      "Docs",
 		ThemeId:       "test",
 		InputPath:     inputDir,
 		OutputPath:    outputDir,
@@ -64,7 +66,8 @@ func TestGenerateDocumentationBuildsPagesSearchIndexAndStaticFiles(t *testing.T)
 		ExcludeDocs:   []string{"draft.md"},
 	}
 
-	if err := GenerateDocumentation(siteManifest, testThemeManifest(), themeDir); err != nil {
+	searchPlugin := search.New(siteManifest.SearchContentLimit, siteManifest.SiteURL, siteManifest.OutputPath)
+	if err := core.GenerateDocumentation(siteManifest, testThemeManifest(), themeDir, searchPlugin); err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,7 +91,7 @@ func TestGenerateDocumentationBuildsPagesSearchIndexAndStaticFiles(t *testing.T)
 	if _, err := os.Stat(filepath.Join(outputDir, "asset.txt")); err != nil {
 		t.Fatalf("docs static file was not copied: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(outputDir, "css", "theme.css")); err != nil {
+	if _, err := os.Stat(filepath.Join(outputDir, "assets", "css", "theme.css")); err != nil {
 		t.Fatalf("theme static file was not copied: %v", err)
 	}
 
@@ -96,7 +99,11 @@ func TestGenerateDocumentationBuildsPagesSearchIndexAndStaticFiles(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var entries []SearchIndexEntry
+	var entries []struct {
+		Title   string `json:"title"`
+		URL     string `json:"url"`
+		Content string `json:"content"`
+	}
 	if err := json.Unmarshal(data, &entries); err != nil {
 		t.Fatal(err)
 	}
@@ -118,8 +125,8 @@ func TestGenerateDocumentationReturnsErrorWhenNoPagesExist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := GenerateDocumentation(manifest.SiteManifest{
-		Name:       "Docs",
+	err := core.GenerateDocumentation(manifest.SiteManifest{
+		SiteName:   "Docs",
 		ThemeId:    "test",
 		InputPath:  inputDir,
 		OutputPath: outputDir,

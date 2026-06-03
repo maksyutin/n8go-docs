@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	stdhtml "html"
 	"os"
 	"path/filepath"
 
@@ -19,7 +20,28 @@ import (
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 )
+
+type bootstrapCodePreWrapper struct {
+	language string
+}
+
+func (w bootstrapCodePreWrapper) Start(code bool, styleAttr string) string {
+	if !code {
+		return `<pre tabindex="0"` + styleAttr + `>`
+	}
+
+	return `<pre tabindex="0"` + styleAttr + `><code` + codeLanguageAttrs(w.language) + `>`
+}
+
+func (w bootstrapCodePreWrapper) End(code bool) string {
+	if code {
+		return `</code></pre>`
+	}
+
+	return `</pre>`
+}
 
 func scanTree(node ast.Node, consumer func(node ast.Node)) {
 	consumer(node)
@@ -53,10 +75,82 @@ func analyzeDocument(astRoot ast.Node, source []byte, pageInfo *pageInfo) {
 	})
 }
 
+// htmlElements is the set of standard HTML elements on which Bootstrap classes
+// and ARIA attributes are permitted. Using OnElements instead of Globally avoids
+// a bluemonday bug where Globally() duplicates already-present class attributes
+// when the same attribute appears on the same element twice in the output.
+var htmlElements = []string{
+	"div", "span", "p", "pre", "code", "blockquote",
+	"ul", "ol", "li",
+	"table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption",
+	"h1", "h2", "h3", "h4", "h5", "h6",
+	"a", "img", "figure", "figcaption",
+	"section", "article", "aside", "nav", "header", "footer", "main",
+	"button", "input", "select", "textarea", "form", "label", "fieldset", "legend",
+	"small", "strong", "em", "del", "ins", "mark", "sub", "sup",
+	"details", "summary", "dialog",
+	"n8go-alert",
+}
+
 func markdownHTMLPolicy() *bluemonday.Policy {
 	policy := bluemonday.UGCPolicy()
 	policy.AllowStyling()
+
+	// Bootstrap: class attribute for utility classes, component classes, grid.
+	// OnElements avoids the bluemonday Globally() attribute-duplication bug.
+	policy.AllowAttrs("class").OnElements(htmlElements...)
+
+	// Bootstrap 5 JS hooks: data-bs-* drive modals, dropdowns, tooltips, carousels.
+	// AllowDataAttributes permits all data-* — safe because the content is
+	// rendered as static HTML; no server-side evaluation occurs.
+	policy.AllowDataAttributes()
+
+	// ARIA attributes required by Bootstrap's accessible components.
+	policy.AllowAttrs(
+		"aria-label", "aria-labelledby", "aria-describedby",
+		"aria-expanded", "aria-controls", "aria-current",
+		"aria-haspopup", "aria-modal", "aria-hidden",
+		"aria-selected", "aria-disabled",
+	).OnElements(htmlElements...)
+	policy.AllowAttrs("role").OnElements(htmlElements...)
+	policy.AllowAttrs("tabindex").OnElements(htmlElements...)
+
+	policy.AllowAttrs("type", "message").OnElements("n8go-alert")
+	policy.AllowAttrs("data-lang").OnElements("code")
 	return policy
+}
+
+func codeBlockLanguage(context highlighting.CodeBlockContext) string {
+	language, ok := context.Language()
+	if !ok {
+		return ""
+	}
+
+	return string(language)
+}
+
+func codeLanguageAttrs(language string) string {
+	if language == "" {
+		return ""
+	}
+
+	escapedLanguage := stdhtml.EscapeString(language)
+	return ` class="language-` + escapedLanguage + `" data-lang="` + escapedLanguage + `"`
+}
+
+func renderHighlightWrapper(w util.BufWriter, context highlighting.CodeBlockContext, entering bool) {
+	if entering {
+		w.WriteString(`<div class="highlight">`)
+		if !context.Highlighted() {
+			w.WriteString(`<pre><code` + codeLanguageAttrs(codeBlockLanguage(context)) + `>`)
+		}
+		return
+	}
+
+	if !context.Highlighted() {
+		w.WriteString(`</code></pre>`)
+	}
+	w.WriteString(`</div>`)
 }
 
 func renderMarkdownPage(mdFile string, theme manifest.ThemeManifest, siteManifest manifest.SiteManifest) (pageInfo, error) {
@@ -79,6 +173,12 @@ func renderMarkdownPage(mdFile string, theme manifest.ThemeManifest, siteManifes
 					hhtml.WithLineNumbers(theme.Highlighting.LineNumbers),
 					hhtml.WithClasses(true),
 				),
+				highlighting.WithWrapperRenderer(renderHighlightWrapper),
+				highlighting.WithCodeBlockOptions(func(context highlighting.CodeBlockContext) []hhtml.Option {
+					return []hhtml.Option{
+						hhtml.WithPreWrapper(bootstrapCodePreWrapper{language: codeBlockLanguage(context)}),
+					}
+				}),
 			),
 			emoji.New(
 				emoji.WithRenderingMethod(emoji.Twemoji),

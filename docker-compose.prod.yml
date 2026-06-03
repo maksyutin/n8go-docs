@@ -1,0 +1,34 @@
+# Production environment
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/owner/n8go-docs:latest}
+    container_name: n8go-docs-prod
+    restart: always
+    ports:
+      - "127.0.0.1:8080:8080"    # Only local — nginx proxies from outside
+    volumes:
+      - /opt/docs:/docs:ro
+      - /opt/themes:/themes:ro
+      - site_data:/site
+    environment:
+      - N8GO_ENV=prod
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
+volumes:
+  site_data:

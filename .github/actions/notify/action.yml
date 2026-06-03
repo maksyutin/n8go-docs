@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Composite action: Telegram notification
+# ─────────────────────────────────────────────────────────────────────────────
+name: Notify
+description: Send a Telegram deployment notification
+
+inputs:
+  status:
+    description: 'success | failure | cancelled'
+    required: true
+  environment:
+    description: 'dev | stage | prod'
+    required: true
+  provider:
+    description: 'Deploy provider name'
+    required: true
+  image:
+    description: 'Docker image reference'
+    required: true
+  telegram_token:
+    description: 'Telegram bot token'
+    required: true
+  telegram_chat_id:
+    description: 'Telegram chat/channel ID'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Send Telegram message
+      shell: bash
+      env:
+        BOT_TOKEN: ${{ inputs.telegram_token }}
+        CHAT_ID:   ${{ inputs.telegram_chat_id }}
+        STATUS:    ${{ inputs.status }}
+        ENV:       ${{ inputs.environment }}
+        PROVIDER:  ${{ inputs.provider }}
+        IMAGE:     ${{ inputs.image }}
+        REPO:      ${{ github.repository }}
+        BRANCH:    ${{ github.ref_name }}
+        COMMIT:    ${{ github.sha }}
+        AUTHOR:    ${{ github.actor }}
+        RUN_URL:   ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        case "$STATUS" in
+          success)  EMOJI="✅" ;;
+          failure)  EMOJI="❌" ;;
+          *)        EMOJI="⚠️" ;;
+        esac
+
+        # Short commit SHA
+        SHORT_COMMIT="${COMMIT::8}"
+
+        MESSAGE="${EMOJI} *Deploy ${STATUS^^}*
+
+        *Repo:*        \`${REPO}\`
+        *Branch/Tag:*  \`${BRANCH}\`
+        *Commit:*      \`${SHORT_COMMIT}\`
+        *Author:*      ${AUTHOR}
+        *Environment:* \`${ENV}\`
+        *Provider:*    \`${PROVIDER}\`
+        *Image:*       \`${IMAGE}\`
+
+        [View run](${RUN_URL})"
+
+        # Send without echoing token
+        curl -fsSL \
+          -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+          -H "Content-Type: application/json" \
+          --data-binary "$(jq -n \
+            --arg chat_id  "$CHAT_ID" \
+            --arg text      "$MESSAGE" \
+            '{chat_id: $chat_id, text: $text, parse_mode: "Markdown", disable_web_page_preview: true}'
+          )" > /dev/null

@@ -20,7 +20,6 @@
         minMatchCharLength: 3,
         includeMatches: true,
     });
-    console.log('Fuse.js Initialized');
 
     const appendHighlightedText = (parent, inputText, regions = [], highlightClassName = 'highlight') => {
         const text = String(inputText || '');

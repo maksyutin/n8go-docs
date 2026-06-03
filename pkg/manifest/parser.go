@@ -53,7 +53,11 @@ func convertNavItems(raw []navItemYaml) []NavItem {
 }
 
 type siteYaml struct {
-	Name               string          `yaml:"name"`
+	SiteName           string          `yaml:"site_name"`
+	SiteURL            string          `yaml:"site_url"`
+	SiteDescription    string          `yaml:"site_description"`
+	DevAddr            string          `yaml:"dev_addr"`
+	UseDirectoryURLs   *bool           `yaml:"use_directory_urls"`
 	Theme              string          `yaml:"theme"`
 	DocsDir            string          `yaml:"docs_dir"`
 	SiteDir            string          `yaml:"site_dir"`
@@ -154,6 +158,14 @@ func strOr(s, def string) string {
 	return s
 }
 
+func normalizeURL(rawURL string) string {
+	normalized := strings.TrimSpace(rawURL)
+	for strings.HasSuffix(normalized, "/") && !strings.HasSuffix(normalized, "://") {
+		normalized = strings.TrimSuffix(normalized, "/")
+	}
+	return normalized
+}
+
 func ParseSiteManifest(path string) (SiteManifest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -166,7 +178,11 @@ func ParseSiteManifest(path string) (SiteManifest, error) {
 	}
 
 	result := SiteManifest{
-		Name:               cfg.Name,
+		SiteName:           cfg.SiteName,
+		SiteURL:            normalizeURL(cfg.SiteURL),
+		SiteDescription:    cfg.SiteDescription,
+		DevAddr:            strings.TrimSpace(cfg.DevAddr),
+		UseDirectoryURLs:   boolOr(cfg.UseDirectoryURLs, true),
 		ThemeId:            strOr(cfg.Theme, "default"),
 		InputPath:          strOr(cfg.DocsDir, "docs"),
 		OutputPath:         strOr(cfg.SiteDir, "site"),
@@ -175,7 +191,7 @@ func ParseSiteManifest(path string) (SiteManifest, error) {
 		SearchContentLimit: intOr(cfg.SearchContentLimit, 500),
 		HeadTags:           cfg.HeadTags,
 		CustomFont:         cfg.CustomFont,
-		Logo:               strOr(cfg.Logo, "img/book.svg"),
+		Logo:               strOr(cfg.Logo, "assets/img/logo.svg"),
 		StripMdExtension:   boolOr(cfg.StripMdExtension, false),
 		ExtraCss:           cfg.ExtraCss,
 		ExtraJavascript:    cfg.ExtraJavascript,
@@ -183,8 +199,8 @@ func ParseSiteManifest(path string) (SiteManifest, error) {
 		ExcludeDocs:        []string(cfg.ExcludeDocs),
 	}
 
-	if result.Name == "" {
-		return result, errors.New("missing required field: name")
+	if result.SiteName == "" {
+		return result, errors.New("missing required field: site_name")
 	}
 	if result.ThemeId == "" {
 		return result, errors.New("missing required field: theme")

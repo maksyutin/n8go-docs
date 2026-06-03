@@ -9,7 +9,11 @@ type NavItem struct {
 }
 
 type SiteManifest struct {
-	Name               string
+	SiteName           string
+	SiteURL            string
+	SiteDescription    string
+	DevAddr            string
+	UseDirectoryURLs   bool
 	ThemeId            string
 	InputPath          string
 	OutputPath         string
@@ -42,7 +46,7 @@ type ThemeManifest struct {
 }
 
 func (manifest *SiteManifest) IsValid() bool {
-	return manifest.Name != "" && manifest.ThemeId != "" && manifest.InputPath != "" && manifest.OutputPath != ""
+	return manifest.SiteName != "" && manifest.ThemeId != "" && manifest.InputPath != "" && manifest.OutputPath != ""
 }
 
 func (manifest *ThemeManifest) IsValid() bool {

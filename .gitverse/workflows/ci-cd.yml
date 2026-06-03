@@ -1,0 +1,281 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# n8go-docs — GitVerse CI/CD
+#
+# GitVerse использует Gitea Actions (совместимый формат с GitHub Actions).
+# Отличия от GitHub Actions:
+#   - Нет github.server_url / github.repository_owner — используем gitea.*
+#   - ghcr.io недоступен — используем cr.gitverse.ru (или self-hosted registry)
+#   - docker/login-action поддерживается
+#   - golangci-lint-action поддерживается
+#   - Нет встроенного GITHUB_TOKEN для registry — нужен явный секрет REGISTRY_TOKEN
+#   - Environments с manual approval поддерживаются начиная с Gitea 1.21+
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags:     ['v*']
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: deploy-${{ gitea.ref_name }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION:  "1.25"
+  BINARY_NAME: n8go-docs
+  BINARY_DIR:  pkg
+  # GitVerse Container Registry
+  REGISTRY:         cr.gitverse.ru
+  IMAGE_NAME:       cr.gitverse.ru/${{ gitea.repository }}/n8go-docs
+  HEALTHCHECK_URL:  http://localhost:8080/health
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+# ─── LINT ────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.BINARY_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: pkg/go.sum
+
+      - name: gofmt
+        run: |
+          UNFORMATTED=$(gofmt -l .)
+          [ -z "$UNFORMATTED" ] || (echo "$UNFORMATTED" && exit 1)
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: ${{ env.BINARY_DIR }}
+
+# ─── TEST ────────────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint
+    defaults:
+      run:
+        working-directory: ${{ env.BINARY_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: pkg/go.sum
+
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: ${{ env.BINARY_DIR }}/coverage.out
+
+# ─── BUILD ───────────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    defaults:
+      run:
+        working-directory: ${{ env.BINARY_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: pkg/go.sum
+
+      - name: Build binary
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          VERSION="${{ gitea.ref_type == 'tag' && gitea.ref_name || format('0.0.0-{0}', gitea.sha) }}"
+          go build \
+            -trimpath \
+            -ldflags="-s -w \
+              -X n8go-docs/core.ProgramVersion=${VERSION} \
+              -X main.commit=${{ gitea.sha }} \
+              -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o ../dist/${{ env.BINARY_NAME }} .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-linux-amd64
+          path: dist/${{ env.BINARY_NAME }}
+
+# ─── DOCKER ──────────────────────────────────────────────────────────────────
+  docker:
+    name: Docker build & push
+    runs-on: ubuntu-latest
+    needs: build
+    if: gitea.event_name != 'pull_request'
+    outputs:
+      image_tag: ${{ steps.tags.outputs.primary }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binary-linux-amd64
+          path: dist/
+
+      - run: chmod +x dist/${{ env.BINARY_NAME }}
+
+      - name: Compute tags
+        id: tags
+        run: |
+          SHORT_SHA="${{ gitea.sha }}"
+          SHORT_SHA="${SHORT_SHA::8}"
+          BASE="${{ env.IMAGE_NAME }}"
+          if [ "${{ gitea.ref_type }}" = "tag" ]; then
+            TAG="${{ gitea.ref_name }}"
+            SEMVER="${TAG#v}"
+            TAGS="${BASE}:${TAG},${BASE}:${SEMVER},${BASE}:latest"
+            PRIMARY="${BASE}:${TAG}"
+          else
+            TAGS="${BASE}:latest,${BASE}:sha-${SHORT_SHA}"
+            PRIMARY="${BASE}:sha-${SHORT_SHA}"
+          fi
+          echo "tags=$TAGS"       >> "$GITHUB_OUTPUT"
+          echo "primary=$PRIMARY" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitVerse Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
+          cache-to:   type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+# ─── DEPLOY stage ────────────────────────────────────────────────────────────
+  deploy-stage:
+    name: Deploy → stage
+    runs-on: ubuntu-latest
+    needs: docker
+    if: gitea.ref == 'refs/heads/main'
+    environment: stage
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy (docker-ssh)
+        env:
+          SSH_HOST:      ${{ secrets.STAGE_SSH_HOST }}
+          SSH_USER:      ${{ secrets.STAGE_SSH_USER }}
+          SSH_PORT:      ${{ secrets.STAGE_SSH_PORT }}
+          REGISTRY:      ${{ env.REGISTRY }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASS: ${{ secrets.REGISTRY_TOKEN }}
+          IMAGE:         ${{ needs.docker.outputs.image_tag }}
+          COMPOSE_FILE:  docker-compose.stage.yml
+          COMPOSE_DIR:   /opt/app
+          SERVICE:       app
+          HC_URL:        ${{ env.HEALTHCHECK_URL }}
+          HC_RETRIES:    "12"
+          HC_INTERVAL:   "5"
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGE_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${SSH_PORT:-22}" "$SSH_HOST" >> ~/.ssh/known_hosts
+          bash .github/scripts/provider-docker-ssh.sh
+          rm -f ~/.ssh/deploy_key
+
+      - name: Notify
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          bash .gitlab/scripts/notify-telegram.sh \
+            "$STATUS" "stage" "docker-ssh" "${{ needs.docker.outputs.image_tag }}"
+        env:
+          TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+          CI_PROJECT_PATH:     ${{ gitea.repository }}
+          CI_COMMIT_REF_NAME:  ${{ gitea.ref_name }}
+          CI_COMMIT_SHORT_SHA: ${{ gitea.sha }}
+          CI_PROJECT_URL:      ${{ gitea.server_url }}/${{ gitea.repository }}
+          CI_PIPELINE_ID:      ${{ gitea.run_id }}
+          GITLAB_USER_LOGIN:   ${{ gitea.actor }}
+
+# ─── DEPLOY prod ─────────────────────────────────────────────────────────────
+  deploy-prod:
+    name: Deploy → prod
+    runs-on: ubuntu-latest
+    needs: docker
+    if: startsWith(gitea.ref, 'refs/tags/v')
+    environment: prod   # Manual approval via Gitea Environment protection
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy (docker-ssh)
+        env:
+          SSH_HOST:      ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER:      ${{ secrets.PROD_SSH_USER }}
+          SSH_PORT:      ${{ secrets.PROD_SSH_PORT }}
+          REGISTRY:      ${{ env.REGISTRY }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASS: ${{ secrets.REGISTRY_TOKEN }}
+          IMAGE:         ${{ needs.docker.outputs.image_tag }}
+          COMPOSE_FILE:  docker-compose.prod.yml
+          COMPOSE_DIR:   /opt/app
+          SERVICE:       app
+          HC_URL:        ${{ env.HEALTHCHECK_URL }}
+          HC_RETRIES:    "12"
+          HC_INTERVAL:   "5"
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${SSH_PORT:-22}" "$SSH_HOST" >> ~/.ssh/known_hosts
+          bash .github/scripts/provider-docker-ssh.sh
+          rm -f ~/.ssh/deploy_key
+
+      - name: Notify
+        if: always()
+        run: |
+          bash .gitlab/scripts/notify-telegram.sh \
+            "${{ job.status }}" "prod" "docker-ssh" "${{ needs.docker.outputs.image_tag }}"
+        env:
+          TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+          CI_PROJECT_PATH:     ${{ gitea.repository }}
+          CI_COMMIT_REF_NAME:  ${{ gitea.ref_name }}
+          CI_COMMIT_SHORT_SHA: ${{ gitea.sha }}
+          CI_PROJECT_URL:      ${{ gitea.server_url }}/${{ gitea.repository }}
+          CI_PIPELINE_ID:      ${{ gitea.run_id }}
+          GITLAB_USER_LOGIN:   ${{ gitea.actor }}

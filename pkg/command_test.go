@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"n8go-docs/manifest"
 )
 
 func captureCommandStdout(t *testing.T, fn func()) string {
@@ -94,8 +96,8 @@ func TestRunGeneratorUsesThemeDirAndBuildsSite(t *testing.T) {
 highlighting:
   style: github
 `)
-	writeCommandTestFile(t, filepath.Join(themeDir, "main.html"), `<!doctype html><main class="main-content">{{.Page.Body}}</main>`)
-	writeCommandTestFile(t, configPath, "name: Docs\ndocs_dir: docs\nsite_dir: site\ntheme: default\n")
+	writeCommandTestFile(t, filepath.Join(themeDir, "main.html"), `<!doctype html><main class="main-content">{{ page.content }}</main>`)
+	writeCommandTestFile(t, configPath, "site_name: Docs\ndocs_dir: docs\nsite_dir: site\ntheme: default\n")
 
 	t.Setenv("THEME_DIR", themeBaseDir)
 	if err := runGenerator(configPath); err != nil {
@@ -110,7 +112,7 @@ func TestFileServerWithCustom404(t *testing.T) {
 	root := t.TempDir()
 	writeCommandTestFile(t, filepath.Join(root, "file.txt"), "ok")
 
-	handler := FileServerWithCustom404(http.Dir(root), 9080)
+	handler := FileServerWithCustom404(http.Dir(root), ":9080")
 
 	okRequest := httptest.NewRequest(http.MethodGet, "/file.txt", nil)
 	okResponse := httptest.NewRecorder()
@@ -127,5 +129,16 @@ func TestFileServerWithCustom404(t *testing.T) {
 	}
 	if !strings.Contains(missingResponse.Body.String(), "404 - Not Found") {
 		t.Fatalf("unexpected 404 body: %q", missingResponse.Body.String())
+	}
+}
+
+func TestResolveDevAddrUsesConfigUnlessPortOverridden(t *testing.T) {
+	siteManifest := manifest.SiteManifest{DevAddr: "127.0.0.1:8000"}
+
+	if got := resolveDevAddr(siteManifest.DevAddr, defaultServePort); got != "127.0.0.1:8000" {
+		t.Fatalf("resolveDevAddr default port = %q", got)
+	}
+	if got := resolveDevAddr(siteManifest.DevAddr, 3000); got != ":3000" {
+		t.Fatalf("resolveDevAddr overridden port = %q", got)
 	}
 }

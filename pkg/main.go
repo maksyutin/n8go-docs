@@ -70,6 +70,7 @@ func (cmd *VersionCommand) Run(cli *CLI) error {
 }
 
 const appVersion = "0.1.0"
+const defaultServePort = 9080
 
 // CLI is the root command.
 type CLI struct {

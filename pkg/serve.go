@@ -2,54 +2,60 @@ package main
 
 import (
 	"log"
-	"n8go-docs/diagnostics"
-	"n8go-docs/manifest"
-	"n8go-docs/utils"
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
+	"strings"
+
+	"n8go-docs/diagnostics"
+	"n8go-docs/editor"
+	"n8go-docs/utils"
 
 	"github.com/fatih/color"
 	"github.com/fsnotify/fsnotify"
 )
+
+const editorMountPath = "/_editor"
 
 func DefaultNotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	w.Write([]byte("404 - Not Found"))
 }
 
-func FileServerWithCustom404(fs http.FileSystem, port int) http.Handler {
-	color.Green("Serving on http://localhost:%d", port)
+func FileServerWithCustom404(fs http.FileSystem, addr string) http.Handler {
+	color.Green("Serving on %s", displayServerAddr(addr))
 	fsh := http.FileServer(fs)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := fs.Open(path.Clean(r.URL.Path))
 		if err == nil {
 			fsh.ServeHTTP(w, r)
 			return
-		} else {
-			DefaultNotFound(w, r)
-			return
 		}
+		DefaultNotFound(w, r)
 	})
 }
 
 func runServer(configPath string, port int) error {
-	// Parse manifest
-	siteManifest, err := manifest.ParseSiteManifest(configPath)
+	site, theme, themeDir, err := loadConfig(configPath)
 	if err != nil {
 		return err
 	}
 
-	// Start watcher
+	pipeline := buildPipeline(site, theme, themeDir)
+
+	// Initial full build
+	if err := pipeline.Build(); err != nil {
+		return err
+	}
+
+	// File watcher — triggers a full rebuild on any change in docs_dir
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
 	defer watcher.Close()
 
-	// Start watch-event handler
 	go func() {
 		for {
 			select {
@@ -57,21 +63,12 @@ func runServer(configPath string, port int) error {
 				if !ok {
 					return
 				}
-				if event.Has(fsnotify.Write) {
-					if !utils.ShouldRebuild(event.Name, event.Op) {
-						continue
+				if event.Has(fsnotify.Write) && utils.ShouldRebuild(event.Name, event.Op) {
+					color.Yellow("File system has changed, regenerating...")
+					if site.DefaultSearch {
+						_ = os.Remove(site.OutputPath + "/search/index.json")
 					}
-					// File system has changed, generate new version
-					color.Yellow("File system has changed, generating new version...")
-					// Delete Previous Search Index
-					if siteManifest.DefaultSearch {
-						erro := os.Remove(filepath.Join(siteManifest.OutputPath, "search", "index.json"))
-						if erro != nil {
-							log.Printf("Error deleting search index: %s\n", err)
-						}
-					}
-					err := runGenerator(configPath)
-					if err != nil {
+					if err := pipeline.Build(); err != nil {
 						diagnostics.PrintError(err, "failed to regenerate")
 					}
 				}
@@ -79,26 +76,42 @@ func runServer(configPath string, port int) error {
 				if !ok {
 					return
 				}
-				log.Printf("Error: %s\n", err)
+				log.Printf("watcher error: %s\n", err)
 			}
 		}
 	}()
 
-	err = watcher.Add(siteManifest.InputPath)
-	if err != nil {
+	if err := watcher.Add(site.InputPath); err != nil {
 		return err
 	}
 
-	// Generate initial version
-	err = runGenerator(configPath)
-	if err != nil {
-		return err
-	}
+	// Build HTTP mux: static file server + editor API
+	mux := http.NewServeMux()
 
-	err = http.ListenAndServe(":"+strconv.Itoa(port), FileServerWithCustom404(http.Dir(siteManifest.OutputPath), port))
-	if err != nil {
-		return err
-	}
+	ed := editor.New(pipeline)
+	ed.Mount(mux, editorMountPath)
 
-	return nil
+	// Catch-all: serve static site files
+	fileServer := FileServerWithCustom404(http.Dir(site.OutputPath), "")
+	mux.Handle("/", fileServer)
+
+	addr := resolveDevAddr(site.DevAddr, port)
+	color.Green("Serving on %s", displayServerAddr(addr))
+	color.Cyan("Editor API at %s%s", displayServerAddr(addr), editorMountPath)
+
+	return http.ListenAndServe(addr, mux)
+}
+
+func resolveDevAddr(devAddr string, port int) string {
+	if devAddr != "" && port == defaultServePort {
+		return devAddr
+	}
+	return ":" + strconv.Itoa(port)
+}
+
+func displayServerAddr(addr string) string {
+	if strings.HasPrefix(addr, ":") {
+		return "http://localhost" + addr
+	}
+	return "http://" + addr
 }

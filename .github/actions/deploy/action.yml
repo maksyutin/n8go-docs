@@ -1,0 +1,177 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Composite action: Deploy Provider Router
+#
+# Pluggable deploy architecture.
+# Switching provider = changing the `provider` input.
+# Adding a new provider = add a new `elif` block + deploy script.
+#
+# Supported providers:
+#   docker-ssh    — Docker Compose over SSH (VPS / own server)
+#   yandex-cloud  — Yandex Container Registry + VM over SSH
+#   (more can be added without changing the workflow file)
+# ─────────────────────────────────────────────────────────────────────────────
+name: Deploy
+description: Routes deployment to the selected provider
+
+inputs:
+  # ── Provider selection ────────────────────────────────────────────────────
+  provider:
+    description: 'Deploy provider: docker-ssh | yandex-cloud'
+    required: true
+
+  environment:
+    description: 'Target environment: dev | stage | prod'
+    required: true
+
+  image:
+    description: 'Full image reference (registry/repo:tag)'
+    required: true
+
+  # ── SSH credentials (docker-ssh / yandex-cloud VM) ────────────────────────
+  ssh_host:
+    description: 'SSH host'
+    required: false
+  ssh_user:
+    description: 'SSH user'
+    required: false
+    default: 'deploy'
+  ssh_port:
+    description: 'SSH port'
+    required: false
+    default: '22'
+  ssh_key:
+    description: 'SSH private key (PEM)'
+    required: false
+
+  # ── Registry credentials ──────────────────────────────────────────────────
+  registry_server:
+    description: 'Container registry hostname'
+    required: true
+  registry_user:
+    description: 'Registry username'
+    required: true
+  registry_password:
+    description: 'Registry password / token'
+    required: true
+
+  # ── Docker Compose ────────────────────────────────────────────────────────
+  compose_file:
+    description: 'docker-compose file on the remote host'
+    required: false
+    default: 'docker-compose.yml'
+  compose_service:
+    description: 'Service name to update (empty = all)'
+    required: false
+    default: 'app'
+  compose_project_dir:
+    description: 'Directory on the remote host with docker-compose file'
+    required: false
+    default: '/opt/app'
+
+  # ── Healthcheck ───────────────────────────────────────────────────────────
+  healthcheck_url:
+    description: 'URL to poll after deploy (e.g. http://localhost:8080/health)'
+    required: false
+    default: 'http://localhost:8080/health'
+  healthcheck_retries:
+    description: 'Number of healthcheck attempts'
+    required: false
+    default: '12'
+  healthcheck_interval:
+    description: 'Seconds between attempts'
+    required: false
+    default: '5'
+
+  # ── Yandex Cloud specific ─────────────────────────────────────────────────
+  yc_sa_key_json:
+    description: 'Yandex Cloud service account key JSON'
+    required: false
+  yc_registry_id:
+    description: 'Yandex Container Registry ID'
+    required: false
+
+runs:
+  using: composite
+  steps:
+    # ── Write SSH key (shared across providers that need SSH) ──────────────
+    - name: Install SSH key
+      if: inputs.ssh_key != ''
+      shell: bash
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ inputs.ssh_key }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -p "${{ inputs.ssh_port }}" "${{ inputs.ssh_host }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+    # ── Provider: docker-ssh ───────────────────────────────────────────────
+    - name: '[docker-ssh] Deploy'
+      if: inputs.provider == 'docker-ssh'
+      shell: bash
+      env:
+        SSH_HOST:      ${{ inputs.ssh_host }}
+        SSH_USER:      ${{ inputs.ssh_user }}
+        SSH_PORT:      ${{ inputs.ssh_port }}
+        REGISTRY:      ${{ inputs.registry_server }}
+        REGISTRY_USER: ${{ inputs.registry_user }}
+        # Password passed via file to avoid leaking in process list
+        REGISTRY_PASS: ${{ inputs.registry_password }}
+        IMAGE:         ${{ inputs.image }}
+        COMPOSE_FILE:  ${{ inputs.compose_file }}
+        COMPOSE_DIR:   ${{ inputs.compose_project_dir }}
+        SERVICE:       ${{ inputs.compose_service }}
+        HC_URL:        ${{ inputs.healthcheck_url }}
+        HC_RETRIES:    ${{ inputs.healthcheck_retries }}
+        HC_INTERVAL:   ${{ inputs.healthcheck_interval }}
+      run: ${{ github.action_path }}/../../scripts/provider-docker-ssh.sh
+
+    # ── Provider: yandex-cloud ─────────────────────────────────────────────
+    - name: '[yandex-cloud] Install YC CLI'
+      if: inputs.provider == 'yandex-cloud'
+      shell: bash
+      run: |
+        curl -fsSL https://storage.yandexcloud.net/yandexcloud-yc/release/0.125.0/linux/amd64/yc \
+          -o /usr/local/bin/yc
+        chmod +x /usr/local/bin/yc
+
+    - name: '[yandex-cloud] Authenticate'
+      if: inputs.provider == 'yandex-cloud'
+      shell: bash
+      env:
+        YC_SA_KEY_JSON: ${{ inputs.yc_sa_key_json }}
+      run: |
+        echo "$YC_SA_KEY_JSON" > /tmp/sa-key.json
+        yc config set service-account-key /tmp/sa-key.json
+        # Login to Yandex Container Registry via Docker
+        yc container registry configure-docker --folder-id ignored
+        # Also login explicitly so docker push works
+        yc iam create-token | docker login \
+          --username iam \
+          --password-stdin \
+          cr.yandex
+
+    - name: '[yandex-cloud] Deploy via SSH'
+      if: inputs.provider == 'yandex-cloud'
+      shell: bash
+      env:
+        SSH_HOST:     ${{ inputs.ssh_host }}
+        SSH_USER:     ${{ inputs.ssh_user }}
+        SSH_PORT:     ${{ inputs.ssh_port }}
+        # For YC we pass the YC token as registry password
+        REGISTRY:      cr.yandex
+        REGISTRY_USER: iam
+        REGISTRY_PASS: ${{ inputs.registry_password }}
+        IMAGE:         ${{ inputs.image }}
+        COMPOSE_FILE:  ${{ inputs.compose_file }}
+        COMPOSE_DIR:   ${{ inputs.compose_project_dir }}
+        SERVICE:       ${{ inputs.compose_service }}
+        HC_URL:        ${{ inputs.healthcheck_url }}
+        HC_RETRIES:    ${{ inputs.healthcheck_retries }}
+        HC_INTERVAL:   ${{ inputs.healthcheck_interval }}
+      run: ${{ github.action_path }}/../../scripts/provider-docker-ssh.sh
+
+    # ── Cleanup sensitive files ────────────────────────────────────────────
+    - name: Cleanup credentials
+      if: always()
+      shell: bash
+      run: |
+        rm -f ~/.ssh/deploy_key /tmp/sa-key.json

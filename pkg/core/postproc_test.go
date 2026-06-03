@@ -95,6 +95,26 @@ func TestResolveHref_MdLink_KnownPage(t *testing.T) {
 	}
 }
 
+func TestResolveHref_UsesConfiguredSiteURL(t *testing.T) {
+	index := PageIndex{
+		"docs/index.md":      ".",
+		"docs/adr/page.md":   "adr/page",
+		"docs/components.md": "components",
+	}
+	ctx := makeCtx("docs/adr", "adr/current", "../../", index)
+	ctx.Site.SiteURL = "https://108n.online/xboiler"
+
+	if got := resolveHref("../components.md", ctx); got != "https://108n.online/xboiler/components/" {
+		t.Errorf("got %q, want configured public URL", got)
+	}
+	if got := resolveHref("img/photo.png", ctx); got != "https://108n.online/xboiler/img/photo.png" {
+		t.Errorf("got %q, want configured public static URL", got)
+	}
+	if got := resolveHref(".", ctx); got != "https://108n.online/xboiler/" {
+		t.Errorf("got %q, want configured public homepage URL", got)
+	}
+}
+
 func TestResolveHref_AbsoluteMdLink(t *testing.T) {
 	index := PageIndex{"docs/guide/page.md": "guide/page"}
 	ctx := makeCtx("docs/other", "other", "../", index)
@@ -200,6 +220,26 @@ func TestProcessHtml_SrcRewrittenWithRootPath(t *testing.T) {
 	}
 	if !strings.Contains(result, `src="../../js/app.js"`) {
 		t.Errorf("expected ../../js/app.js (stripped ../) in:\n%s", result)
+	}
+}
+
+func TestProcessHtml_RewritesLocalLinksWithConfiguredSiteURL(t *testing.T) {
+	ctx := makeCtx("docs/adr", "adr/current", "../../", PageIndex{
+		"docs/adr/target.md": "adr/target",
+	})
+	ctx.Site.SiteURL = "https://108n.online/xboiler"
+	input := `<html><body><a href="target.md">Target</a><img src="img/logo.png"/></body></html>`
+	var out strings.Builder
+
+	if err := processHtml(strings.NewReader(input), &out, ctx); err != nil {
+		t.Fatal(err)
+	}
+	result := out.String()
+	if !strings.Contains(result, `href="https://108n.online/xboiler/adr/target/"`) {
+		t.Errorf("expected public href in:\n%s", result)
+	}
+	if !strings.Contains(result, `src="https://108n.online/xboiler/img/logo.png"`) {
+		t.Errorf("expected public src in:\n%s", result)
 	}
 }
 
